@@ -19,6 +19,7 @@
   let allUsers: any[] = [];
   let activeTab: 'resources' | 'batches' | 'prereqs' | 'enroll' = 'resources';
   let selectedCategoryId: number | null = null;
+  let loadError = '';
 
   // New Resource Form
   let showUploadModal = false;
@@ -80,15 +81,36 @@
 
   async function loadCourseDetails(courseId: number) {
     localCourseId = courseId;
-    categories = await api.getCategories(courseId);
-    resources = await api.getResources(courseId);
-    batches = await api.getBatches(courseId);
-    prerequisites = await api.getPrerequisites(courseId);
-    enrollments = isTeacher ? await api.getEnrollments(courseId) : [];
-    if (categories.length > 0) {
-      newCatId = categories[0].categoryid;
+    loadError = '';
+    try {
+      categories = await api.getCategories(courseId);
+      resources = await api.getResources(courseId);
+      batches = await api.getBatches(courseId);
+      prerequisites = await api.getPrerequisites(courseId);
+      enrollments = isTeacher ? await api.getEnrollments(courseId) : [];
+      if (categories.length > 0) {
+        newCatId = categories[0].categoryid;
+      }
+      enrollStatusMsg = '';
+    } catch (err: any) {
+      categories = [];
+      resources = [];
+      batches = [];
+      prerequisites = [];
+      enrollments = [];
+      loadError = err?.message || 'Unable to load course details for this course.';
     }
-    enrollStatusMsg = '';
+  }
+
+  function closeModals() {
+    showUploadModal = false;
+    showCourseModal = false;
+    showBatchModal = false;
+    showCategoryModal = false;
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') closeModals();
   }
 
   async function handleAddResource() {
@@ -215,6 +237,8 @@
   }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 <div class="space-y-6">
 
   <!-- Header & Course Selector -->
@@ -247,6 +271,11 @@
   </div>
 
   <!-- Selected Course Metadata -->
+  {#if loadError}
+    <div class="p-3 rounded-md border border-red-900/60 bg-red-950/30 text-red-300 text-xs">
+      {loadError}
+    </div>
+  {/if}
   {#if courses.find(c => c.courseid === localCourseId)}
     {@const cur = courses.find(c => c.courseid === localCourseId)}
     <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-5">
@@ -622,8 +651,8 @@
 
   <!-- Upload Modal -->
   {#if showUploadModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
         <h3 class="text-sm font-semibold text-zinc-100">Upload Learning Resource</h3>
         
         <div>
@@ -669,8 +698,8 @@
 
   <!-- New Course Modal -->
   {#if showCourseModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
         <h3 class="text-sm font-semibold text-zinc-100">Create Course</h3>
         <div>
           <label for="course-code" class="block text-xs font-medium text-zinc-400 mb-1">Course Code</label>
@@ -697,8 +726,8 @@
 
   <!-- New Batch Modal -->
   {#if showBatchModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
         <h3 class="text-sm font-semibold text-zinc-100">Create Batch</h3>
         <div>
           <label for="batch-name" class="block text-xs font-medium text-zinc-400 mb-1">Batch Name</label>
@@ -715,8 +744,8 @@
 
   <!-- New Category Modal -->
   {#if showCategoryModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
         <h3 class="text-sm font-semibold text-zinc-100">Create Category</h3>
         <div>
           <label for="category-name" class="block text-xs font-medium text-zinc-400 mb-1">Category Name</label>

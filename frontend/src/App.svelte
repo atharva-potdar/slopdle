@@ -46,7 +46,7 @@
     }
   });
 
-  async function applySession(meRes: { user: User; enrollments: any[] }) {
+  async function applySession(meRes: { user: User | null; enrollments: any[] }) {
     currentUser = meRes.user;
     enrollments = meRes.enrollments || [];
     if (enrollments.length > 0) {
@@ -136,7 +136,7 @@
       newPhotoUrl = '';
       const meRes = await api.me();
       currentUser = meRes.user;
-      profilePhotos = meRes.user.photos || [];
+      profilePhotos = meRes.user?.photos || [];
     } catch (err: any) {
       alert(err.message);
     }
@@ -148,7 +148,7 @@
       await api.deleteUserPhoto(currentUser.userId, url);
       const meRes = await api.me();
       currentUser = meRes.user;
-      profilePhotos = meRes.user.photos || [];
+      profilePhotos = meRes.user?.photos || [];
     } catch (err: any) {
       alert(err.message);
     }
@@ -177,7 +177,13 @@
     const enr = enrollments.find(e => e.courseid === courseId);
     if (enr) currentRole = enr.rolename;
   }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') showProfile = false;
+  }
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 <div class="min-h-screen flex flex-col bg-zinc-950 text-zinc-100 antialiased selection:bg-zinc-800 selection:text-zinc-100">
 
@@ -250,7 +256,7 @@
   <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6">
     {#if currentUser && selectedCourseId}
       {#if activeTab === 'dashboard'}
-        <DashboardView {currentUser} {selectedCourseId} {currentRole} onNavigate={handleTabChange} />
+        <DashboardView {currentUser} {selectedCourseId} {currentRole} {enrollments} onNavigate={handleTabChange} />
       {:else if activeTab === 'courses'}
         <CoursesView {selectedCourseId} {currentRole} />
       {:else if activeTab === 'assignments'}
@@ -271,19 +277,19 @@
   <footer class="border-t border-zinc-800/60 bg-zinc-950 py-4 text-xs text-zinc-500">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px]">
       <div class="flex items-center space-x-2">
-        <span class="font-medium text-zinc-400">Moodle++</span>
+        <span class="font-medium text-zinc-400">moodle++</span>
         <span>•</span>
         <span class="text-zinc-500">Learning Management System</span>
       </div>
       <div class="flex items-center space-x-2 font-mono text-[10px] text-zinc-600">
-        <span>v2.0.0</span>
+        <span>v{__APP_VERSION__}</span>
       </div>
     </div>
   </footer>
 
   {#if showProfile}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={() => showProfile = false}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
         <h3 class="text-sm font-semibold text-zinc-100">Edit Profile</h3>
 
         <div class="grid grid-cols-2 gap-3">

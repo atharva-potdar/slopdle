@@ -61,6 +61,7 @@ JOIN Submission s ON u.UserID = s.UserID
 JOIN Assignment a ON s.AssignmentID = a.AssignmentID
 JOIN Evaluation e ON s.SubmissionID = e.SubmissionID
 WHERE u.UserID = ? AND a.CourseID = ?
+ORDER BY s.SubmissionTime DESC, s.SubmissionID DESC
 `
 
 type GetStudentGradesInCourseParams struct {

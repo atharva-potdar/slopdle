@@ -34,12 +34,12 @@ func NewRouter(q *db.Queries, sqlDB *sql.DB) http.Handler {
 		// Auth (public)
 		api.Post("/login", h.Login)
 		api.Post("/logout", h.Logout)
+		// Session probe: returns 200 with a null user when logged out (no 401 noise)
+		api.Get("/me", h.Me)
 
 		// Everything below requires a valid session
 		api.Group(func(api chi.Router) {
 			api.Use(middleware.RequireAuth)
-
-			api.Get("/me", h.Me)
 
 			// Users
 			api.Get("/users", h.ListUsers)

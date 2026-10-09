@@ -21,7 +21,7 @@ type AddPrereqRequest struct {
 }
 
 func (h *AppHandler) ListCourses(w http.ResponseWriter, r *http.Request) {
-	courses, err := h.q.ListCourses(r.Context())
+	courses, err := h.q.ListCoursesByUser(r.Context(), h.callerID(r))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

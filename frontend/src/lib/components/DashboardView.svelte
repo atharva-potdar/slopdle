@@ -1,13 +1,13 @@
 <script lang="ts">
   import { ArrowUpRight } from 'lucide-svelte';
-  import { api, type User, type Course, type AttendanceSummary, type StudentGradeItem, type PendingStudent } from '../api';
+  import { api, type User, type AttendanceSummary, type StudentGradeItem, type PendingStudent } from '../api';
 
   export let currentUser: User;
   export let selectedCourseId: number;
   export let currentRole: string;
+  export let enrollments: any[] = [];
   export let onNavigate: (tab: string) => void;
 
-  let courses: Course[] = [];
   let attendance: AttendanceSummary | null = null;
   let grades: StudentGradeItem[] = [];
   let pendingAssignments: any[] = [];
@@ -20,6 +20,11 @@
 
   $: isStudent = currentRole === 'Student';
   $: isTeacherOrTA = currentRole === 'Teacher' || currentRole === 'Teaching Assistant';
+  $: staffCourseIds = new Set(
+    enrollments
+      .filter(e => e.rolename === 'Teacher' || e.rolename === 'Teaching Assistant')
+      .map(e => e.courseid)
+  );
 
   $: if (currentUser && selectedCourseId) {
     loadDashboardData();
@@ -28,7 +33,6 @@
   async function loadDashboardData() {
     loading = true;
     try {
-      courses = await api.getCourses();
       if (isStudent) {
         attendance = await api.getStudentAttendance(selectedCourseId, currentUser.userId).catch(() => null);
         grades = await api.getStudentGrades(selectedCourseId, currentUser.userId).catch(() => []);
@@ -72,14 +76,8 @@
         {currentUser.firstName} {currentUser.lastName}
       </h1>
       <p class="text-xs text-zinc-500 mt-0.5">
-        {isStudent ? 'Enrolled in Computer Science • Fall 2026' : 'Faculty Instructor • Department of Computer Science'}
+        {currentRole ? `${currentRole} account` : 'Account'}
       </p>
-    </div>
-    
-    <div class="flex items-center space-x-2">
-      <span class="inline-flex items-center rounded-md border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-xs font-mono text-zinc-400">
-        Role: {currentRole || '—'}
-      </span>
     </div>
   </div>
 
@@ -91,7 +89,7 @@
       <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
         <div class="text-xs font-medium text-zinc-400">Attendance </div>
         <div class="mt-2 text-2xl font-semibold tracking-tight text-zinc-100 font-mono">
-          {attendance?.percentage || '100%'}
+          {attendance?.percentage ?? '—'}
         </div>
         <p class="text-[11px] text-zinc-500 mt-1">
           {attendance?.presentCount || 0} of {attendance?.totalSessions || 0} class sessions attended
@@ -193,7 +191,7 @@
       <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
         <div class="text-xs font-medium text-zinc-400">Active Courses</div>
         <div class="mt-2 text-2xl font-semibold tracking-tight text-zinc-100 font-mono">
-          {courses.length}
+          {staffCourseIds.size}
         </div>
         <p class="text-[11px] text-zinc-500 mt-1">
           Total courses managed

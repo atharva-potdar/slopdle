@@ -49,7 +49,6 @@
             M
           </div>
           <span class="text-sm font-semibold tracking-tight text-zinc-100">moodle++</span>
-          <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-900/60">4NF</span>
         </button>
 
         <!-- Understated Tabs -->

@@ -3,6 +3,13 @@ SELECT CourseID, CourseCode, Title, Description
 FROM Course
 ORDER BY CourseCode ASC;
 
+-- name: ListCoursesByUser :many
+SELECT c.CourseID, c.CourseCode, c.Title, c.Description
+FROM Course c
+JOIN Enrollment e ON e.CourseID = c.CourseID
+WHERE e.UserID = ?
+ORDER BY c.CourseCode ASC;
+
 -- name: GetCourseByID :one
 SELECT CourseID, CourseCode, Title, Description
 FROM Course

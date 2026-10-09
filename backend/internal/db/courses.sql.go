@@ -151,3 +151,39 @@ func (q *Queries) ListCourses(ctx context.Context) ([]Course, error) {
 	}
 	return items, nil
 }
+
+const listCoursesByUser = `-- name: ListCoursesByUser :many
+SELECT c.CourseID, c.CourseCode, c.Title, c.Description
+FROM Course c
+JOIN Enrollment e ON e.CourseID = c.CourseID
+WHERE e.UserID = ?
+ORDER BY c.CourseCode ASC
+`
+
+func (q *Queries) ListCoursesByUser(ctx context.Context, userid int32) ([]Course, error) {
+	rows, err := q.db.QueryContext(ctx, listCoursesByUser, userid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Course{}
+	for rows.Next() {
+		var i Course
+		if err := rows.Scan(
+			&i.Courseid,
+			&i.Coursecode,
+			&i.Title,
+			&i.Description,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

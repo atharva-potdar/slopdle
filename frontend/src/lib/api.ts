@@ -161,7 +161,7 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
   logout: () => request('/logout', { method: 'POST' }),
-  me: () => request<{ user: User; enrollments: any[]; unreadAlerts: number }>('/me'),
+  me: () => request<{ user: User | null; enrollments: any[]; unreadAlerts: number }>('/me'),
 
   // Users
   getUsers: () => request<User[]>('/users'),
@@ -245,10 +245,10 @@ export const api = {
     request<any[]>(`/students/${userId}/pending-assignments`),
 
   // Submissions & Grading
-  submitAssignment: (assignmentId: number, contentData: string, userId?: number) =>
+  submitAssignment: (assignmentId: number, contentData: string) =>
     request(`/assignments/${assignmentId}/submit`, {
       method: 'POST',
-      body: JSON.stringify({ contentData, userId }),
+      body: JSON.stringify({ contentData }),
     }),
   getSubmissions: (assignmentId: number) => request<any[]>(`/assignments/${assignmentId}/submissions`),
   evaluateSubmission: (submissionId: number, score: number, feedback: string, graderId?: number) =>
@@ -264,15 +264,15 @@ export const api = {
   // Q&A
   getQuestions: (courseId: number) => request<Question[]>(`/courses/${courseId}/questions`),
   getQuestion: (id: number) => request<{ question: Question; answers: Answer[] }>(`/questions/${id}`),
-  createQuestion: (courseId: number, title: string, body: string, userId?: number) =>
+  createQuestion: (courseId: number, title: string, body: string) =>
     request(`/courses/${courseId}/questions`, {
       method: 'POST',
-      body: JSON.stringify({ title, body, userId }),
+      body: JSON.stringify({ title, body }),
     }),
-  createAnswer: (questionId: number, body: string, userId?: number) =>
+  createAnswer: (questionId: number, body: string) =>
     request(`/questions/${questionId}/answers`, {
       method: 'POST',
-      body: JSON.stringify({ body, userId }),
+      body: JSON.stringify({ body }),
     }),
   upvoteAnswer: (answerId: number) =>
     request(`/answers/${answerId}/upvote`, { method: 'PUT' }),

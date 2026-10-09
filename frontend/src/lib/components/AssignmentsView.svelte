@@ -85,11 +85,30 @@
     }
   }
 
+  async function loadPending() {
+    if (!selectedAssignmentId) {
+      pendingStudents = [];
+      return;
+    }
+    pendingStudents = await api.getPendingStudents(selectedAssignmentId);
+  }
+
+  function closeModals() {
+    showSubmitModal = false;
+    showGradeModal = false;
+    showCreateModal = false;
+    showRubricModal = false;
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') closeModals();
+  }
+
   async function handleSubmitWork() {
     submitError = '';
     submitSuccess = '';
     try {
-      await api.submitAssignment(selectedAssignmentId, submissionContent, currentUser.userId);
+      await api.submitAssignment(selectedAssignmentId, submissionContent);
       submitSuccess = 'Submission recorded successfully.';
       submissionContent = '';
       setTimeout(() => {
@@ -207,6 +226,8 @@
   }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 <div class="space-y-6">
 
   <!-- Header -->
@@ -283,7 +304,7 @@
                   {a.formatrequired?.String || 'Text'}
                 </span>
                 <span class="font-mono text-[10px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
-                  {a.rubrictitle?.String || 'Default Rubric'}
+                  {a.rubrictitle?.String || 'No rubric'}
                 </span>
               </div>
             </div>
@@ -392,9 +413,24 @@
   <!-- TAB 3: PENDING STUDENTS -->
   {#if activeTab === 'pending'}
     <div class="rounded-lg border border-zinc-800 bg-zinc-900/20 overflow-hidden">
-      <div class="p-4 border-b border-zinc-800">
-        <h2 class="text-sm font-semibold text-zinc-100">Students Missing Submissions</h2>
-        <p class="text-xs text-zinc-500">Students with past due or missing assignment submissions</p>
+      <div class="p-4 border-b border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-semibold text-zinc-100">Students Missing Submissions</h2>
+          <p class="text-xs text-zinc-500">Students with past due or missing assignment submissions</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <label for="pending-assignment-select" class="text-xs text-zinc-500 shrink-0">Assignment</label>
+          <select
+            id="pending-assignment-select"
+            bind:value={selectedAssignmentId}
+            on:change={loadPending}
+            class="rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+          >
+            {#each assignments as a}
+              <option value={a.assignmentid}>{a.title}</option>
+            {/each}
+          </select>
+        </div>
       </div>
 
       <div class="overflow-x-auto">
@@ -447,7 +483,6 @@
             </div>
 
             <div class="flex items-center space-x-4">
-              <span class="text-[11px] font-mono text-zinc-500">Student: {g.firstname}</span>
               <span class="font-mono text-xs font-semibold text-zinc-100 px-2 py-0.5 rounded border border-zinc-800 bg-zinc-900">
                 {g.score} / 100
               </span>
@@ -501,8 +536,8 @@
 
   <!-- Submit Work Modal -->
   {#if showSubmitModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
         <h3 class="text-sm font-semibold text-zinc-100">Submit Assignment</h3>
         <p class="text-xs text-zinc-500">
           Target: <span class="text-zinc-300 font-medium">{assignments.find(a => a.assignmentid === selectedAssignmentId)?.title}</span>
@@ -545,8 +580,8 @@
 
   <!-- Grade Modal -->
   {#if showGradeModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
         <h3 class="text-sm font-semibold text-zinc-100">Evaluate Submission</h3>
 
         <div>
@@ -581,8 +616,8 @@
 
   <!-- Create Assignment Modal -->
   {#if showCreateModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
         <h3 class="text-sm font-semibold text-zinc-100">{editingAssignmentId ? 'Edit Assignment' : 'Create Assignment'}</h3>
 
         <div>
@@ -635,8 +670,8 @@
 
   <!-- Rubric Modal -->
   {#if showRubricModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
         <h3 class="text-sm font-semibold text-zinc-100">{editingRubricId ? 'Edit Rubric' : 'Create Rubric'}</h3>
 
         <div>

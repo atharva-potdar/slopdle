@@ -99,7 +99,11 @@ func (h *AppHandler) Logout(w http.ResponseWriter, r *http.Request) {
 func (h *AppHandler) Me(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
-		writeError(w, http.StatusUnauthorized, "unauthenticated")
+		writeJSON(w, http.StatusOK, map[string]any{
+			"user":         nil,
+			"enrollments":  []any{},
+			"unreadAlerts": 0,
+		})
 		return
 	}
 

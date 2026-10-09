@@ -59,6 +59,15 @@
     }
   }
 
+  function closeModals() {
+    showSessionModal = false;
+    showBulkModal = false;
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') closeModals();
+  }
+
   async function handleCreateSession() {
     if (!newSessionBatchId || !newSessionStart || !newSessionEnd) return;
     try {
@@ -105,13 +114,15 @@
   }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 <div class="space-y-6">
 
   <!-- Header -->
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
     <div>
       <h1 class="text-xl font-semibold tracking-tight text-zinc-100">Timetable & Attendance</h1>
-      <p class="text-xs text-zinc-500 mt-0.5">Manage and track student class attendance</p>
+      <p class="text-xs text-zinc-500 mt-0.5">{isStudent ? 'Your attendance record' : 'Manage and track student class attendance'}</p>
     </div>
 
     {#if !isStudent}
@@ -297,8 +308,8 @@
 
   <!-- New Session Modal -->
   {#if showSessionModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
         <h3 class="text-sm font-semibold text-zinc-100">Schedule Class Session</h3>
 
         <div>
@@ -341,8 +352,8 @@
 
   <!-- Bulk Attendance Modal -->
   {#if showBulkModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
         <h3 class="text-sm font-semibold text-zinc-100">Bulk Attendance</h3>
         <p class="text-xs text-zinc-500">Apply one status to all {students.length} enrolled students.</p>
 

@@ -24,6 +24,10 @@
     loadQuestions();
   }
 
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') showAskModal = false;
+  }
+
   async function loadQuestions() {
     if (!selectedCourseId) return;
     questions = await api.getQuestions(selectedCourseId);
@@ -47,7 +51,7 @@
   async function handleAskQuestion() {
     if (!newTitle || !newBody) return;
     try {
-      await api.createQuestion(selectedCourseId, newTitle, newBody, currentUser.userId);
+      await api.createQuestion(selectedCourseId, newTitle, newBody);
       newTitle = '';
       newBody = '';
       showAskModal = false;
@@ -60,7 +64,7 @@
   async function handlePostAnswer() {
     if (!selectedQuestionId || !newAnswerBody) return;
     try {
-      await api.createAnswer(selectedQuestionId, newAnswerBody, currentUser.userId);
+      await api.createAnswer(selectedQuestionId, newAnswerBody);
       newAnswerBody = '';
       await selectQuestion(selectedQuestionId);
     } catch (err: any) {
@@ -90,6 +94,8 @@
     }
   }
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 <div class="space-y-6">
 
@@ -249,8 +255,8 @@
 
   <!-- Ask Question Modal -->
   {#if showAskModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={() => showAskModal = false}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
         <h3 class="text-sm font-semibold text-zinc-100">Ask a Question</h3>
         
         <div>
