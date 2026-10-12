@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS EvaluationAudit (
   PRIMARY KEY (AuditID),
   KEY SubmissionID (SubmissionID),
   CONSTRAINT chk_EvaluationAudit_Action CHECK (Action IN ('INSERT', 'UPDATE', 'DELETE'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 DROP TRIGGER IF EXISTS trg_evaluation_audit_insert;
 DROP TRIGGER IF EXISTS trg_evaluation_audit_update;

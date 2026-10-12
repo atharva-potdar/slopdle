@@ -30,6 +30,15 @@
   let submissionContent = '';
   let submitError = '';
   let submitSuccess = '';
+  // File upload state (PDF/ZIP assignments take files, never links)
+  let uploadFile: File | null = null;
+  let uploadPct = 0;
+  let uploading = false;
+
+  $: submitTarget = assignments.find((a) => a.assignmentid === selectedAssignmentId);
+  $: submitWantsFile = ((submitTarget?.formatrequired?.String || '').toUpperCase().includes('PDF')) ||
+    ((submitTarget?.formatrequired?.String || '').toUpperCase().includes('ZIP'));
+  $: submitMaxMB = submitTarget?.maxuploadmb && submitTarget.maxuploadmb > 0 ? submitTarget.maxuploadmb : 25;
 
   // Deep-link from dashboard: preselect assignment and open its submit modal.
   $: {
@@ -46,6 +55,9 @@
   let gradingSubmissionId: number = 0;
   let gradingContext = '';
   let gradingContent = '';
+  // File submissions: content becomes the download URL, original name kept
+  // for display (iframe previews PDFs, ZIPs get a download link).
+  let gradingFileName = '';
   let gradingBreakdown = '';
   let gradingPenalty = { days: 0, enabled: false, perDay: 0 };
   let gradeScore: number = 90;
@@ -79,6 +91,8 @@
   let newAssignBatchIds: number[] = [];
   let newAssignPenalty = 10;
   let newAssignPenaltyEnabled = true;
+  let newAssignMaxMB = 25;
+  let newAssignMaxFiles = 1;
 
   // Rubric management form
   let showRubricModal = false;
@@ -371,6 +385,47 @@
     }
   }
 
+  async function handleUploadWork() {
+    submitError = '';
+    submitSuccess = '';
+    if (!uploadFile) {
+      submitError = 'Choose a PDF or ZIP file first.';
+      return;
+    }
+    const ext = uploadFile.name.toLowerCase().split('.').pop();
+    if (ext !== 'pdf' && ext !== 'zip') {
+      submitError = 'Only PDF and ZIP files are accepted.';
+      return;
+    }
+    if (uploadFile.size > submitMaxMB * 1024 * 1024) {
+      submitError = `File exceeds the ${submitMaxMB} MB limit.`;
+      return;
+    }
+    uploading = true;
+    uploadPct = 0;
+    try {
+      await api.uploadSubmission(selectedAssignmentId, uploadFile, (p) => (uploadPct = p));
+      submitSuccess = 'File uploaded successfully.';
+      uploadFile = null;
+      if (!isTeacher) {
+        try {
+          mySubmissions = await api.getStudentSubmissions(selectedCourseId, currentUser.userId);
+        } catch (e) {
+          mySubmissions = [];
+        }
+      }
+      setTimeout(() => {
+        showSubmitModal = false;
+        uploading = false;
+        uploadPct = 0;
+        loadTabReports();
+      }, 1000);
+    } catch (err: any) {
+      submitError = err.message;
+      uploading = false;
+    }
+  }
+
   async function handleSubmitWork() {
     submitError = '';
     submitSuccess = '';
@@ -428,7 +483,13 @@
   async function openGradeModal(rep: SubmissionReportItem) {
     gradingSubmissionId = rep.submissionId;
     gradingContext = `${rep.studentName} — ${rep.assignmentName}`;
-    gradingContent = rep.content || '';
+    if (rep.fileName) {
+      gradingContent = api.submissionFileUrl(rep.submissionId);
+      gradingFileName = rep.content || rep.fileName;
+    } else {
+      gradingContent = rep.content || '';
+      gradingFileName = '';
+    }
     gradingCriteria = [];
     gradingPenalty = {
       days: rep.daysLate || 0,
@@ -498,6 +559,8 @@
       batchIds: newAssignBatchIds,
       latePenaltyPerDay: newAssignPenalty,
       latePenaltyEnabled: newAssignPenaltyEnabled,
+      maxUploadMB: newAssignMaxMB,
+      maxUploadFiles: newAssignMaxFiles,
     };
     try {
       if (editingAssignmentId) {
@@ -513,6 +576,8 @@
       newAssignBatchIds = [];
       newAssignPenalty = 10;
       newAssignPenaltyEnabled = true;
+      newAssignMaxMB = 25;
+      newAssignMaxFiles = 1;
       editingAssignmentId = 0;
       showCreateModal = false;
       await loadInitialData();
@@ -531,6 +596,8 @@
     newAssignBatchIds = [];
     newAssignPenalty = 10;
     newAssignPenaltyEnabled = true;
+    newAssignMaxMB = 25;
+    newAssignMaxFiles = 1;
     showCreateModal = true;
   }
 
@@ -544,6 +611,8 @@
     newAssignBatchIds = parseBatchIds(a.batchids);
     newAssignPenalty = a.latepenaltyperday ? parseFloat(a.latepenaltyperday) : 10;
     newAssignPenaltyEnabled = a.latepenaltyenabled ?? true;
+    newAssignMaxMB = a.maxuploadmb && a.maxuploadmb > 0 ? a.maxuploadmb : 25;
+    newAssignMaxFiles = a.maxuploadfiles && a.maxuploadfiles > 0 ? a.maxuploadfiles : 1;
     showCreateModal = true;
   }
 
@@ -858,7 +927,20 @@
                 <td class="p-4 font-medium text-zinc-100">{rep.assignmentName}</td>
                 <td class="p-4 text-zinc-300">{rep.studentName}</td>
                 <td class="p-4 max-w-[12rem]">
-                  {#if isUrl(rep.content)}
+                  {#if rep.fileName}
+                    <span class="font-mono text-[11px] uppercase px-1 py-0.5 rounded border border-zinc-800 bg-zinc-950 text-zinc-500 mr-1.5">
+                      {rep.fileName.toLowerCase().endsWith('.pdf') ? 'PDF' : 'ZIP'}
+                    </span>
+                    <a
+                      href={api.submissionFileUrl(rep.submissionId)}
+                      target="_blank"
+                      rel="noreferrer"
+                      class="inline-flex items-center gap-1 font-mono text-[11px] text-zinc-300 hover:text-white underline underline-offset-2 truncate"
+                    >
+                      <ExternalLink class="w-3 h-3 shrink-0" />
+                      <span class="truncate">{rep.content || rep.fileName}</span>
+                    </a>
+                  {:else if isUrl(rep.content)}
                     <span class="font-mono text-[11px] uppercase px-1 py-0.5 rounded border border-zinc-800 bg-zinc-950 text-zinc-500 mr-1.5">
                       {isPdf(rep.content) ? 'PDF' : 'Link'}
                     </span>
@@ -1175,23 +1257,57 @@
       <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold text-zinc-100">Submit Assignment</h3>
         <p class="text-xs text-zinc-500">
-          Target: <span class="text-zinc-300 font-medium">{assignments.find(a => a.assignmentid === selectedAssignmentId)?.title}</span>
+          Target: <span class="text-zinc-300 font-medium">{submitTarget?.title}</span>
+          <span class="font-mono text-[11px] text-zinc-500"> · {submitTarget?.formatrequired?.String || 'Text'}</span>
         </p>
 
-        <div>
-          <label for="submission-content-input" class="block text-xs font-medium text-zinc-400 mb-1">
-            GitHub Repository URL or Source Code Link
-          </label>
-          <input
-            id="submission-content-input"
-            bind:value={submissionContent}
-            placeholder="https://github.com/username/repository"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono placeholder:text-zinc-500 "
-          />
-          <p class="text-[11px] text-zinc-500 mt-1">
-            * Validated on Go server backend per format requirements.
-          </p>
-        </div>
+        {#if submitWantsFile}
+          <div>
+            <label for="submission-file-input" class="block text-xs font-medium text-zinc-400 mb-1">
+              Upload file (PDF or ZIP)
+            </label>
+            <input
+              id="submission-file-input"
+              type="file"
+              accept=".pdf,.zip"
+              disabled={uploading}
+              on:change={(e) => {
+                const f = (e.target as HTMLInputElement).files?.[0] || null;
+                uploadFile = f;
+                submitError = '';
+              }}
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 file:mr-2 file:rounded file:border-0 file:bg-zinc-100 file:px-2 file:py-1 file:text-[11px] file:font-medium file:text-zinc-950"
+            />
+            <p class="text-[11px] text-zinc-500 mt-1 font-mono">
+              PDF or ZIP · max {submitMaxMB} MB · uploads only, no links
+            </p>
+            {#if uploading}
+              <div class="mt-2 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                <div class="h-full bg-zinc-100 rounded-full transition-all" style="width: {uploadPct}%"></div>
+              </div>
+              <p class="font-mono text-[11px] text-zinc-400 mt-1">{uploadPct}%</p>
+            {/if}
+          </div>
+        {:else}
+          <div>
+            <label for="submission-content-input" class="block text-xs font-medium text-zinc-400 mb-1">
+              {(submitTarget?.formatrequired?.String || '').toUpperCase().includes('GITHUB')
+                ? 'GitHub Repository URL'
+                : 'Submission text or link'}
+            </label>
+            <input
+              id="submission-content-input"
+              bind:value={submissionContent}
+              placeholder={(submitTarget?.formatrequired?.String || '').toUpperCase().includes('GITHUB')
+                ? 'https://github.com/username/repository'
+                : 'Paste your answer or link'}
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono placeholder:text-zinc-500 "
+            />
+            <p class="text-[11px] text-zinc-500 mt-1">
+              * Validated on Go server backend per format requirements.
+            </p>
+          </div>
+        {/if}
 
         {#if submitError}
           <div class="p-2.5 rounded-md border border-red-900/60 bg-red-950/30 text-red-300 text-xs">
@@ -1206,8 +1322,14 @@
         {/if}
 
         <div class="flex justify-end space-x-2 pt-2 border-t border-zinc-800">
-          <button on:click={() => showSubmitModal = false} class="px-3 py-1.5 text-xs rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100">Cancel</button>
-          <button on:click={handleSubmitWork} class="px-3 py-1.5 text-xs rounded-md bg-zinc-100 text-zinc-950 font-medium hover:bg-zinc-200">Submit</button>
+          <button on:click={() => { showSubmitModal = false; uploading = false; uploadFile = null; }} class="px-3 py-1.5 text-xs rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100">Cancel</button>
+          {#if submitWantsFile}
+            <button on:click={handleUploadWork} disabled={uploading || !uploadFile} class="px-3 py-1.5 text-xs rounded-md bg-zinc-100 text-zinc-950 font-medium hover:bg-zinc-200 disabled:opacity-50">
+              {uploading ? `Uploading ${uploadPct}%` : 'Upload'}
+            </button>
+          {:else}
+            <button on:click={handleSubmitWork} class="px-3 py-1.5 text-xs rounded-md bg-zinc-100 text-zinc-950 font-medium hover:bg-zinc-200">Submit</button>
+          {/if}
         </div>
       </div>
     </div>
@@ -1230,7 +1352,30 @@
         {#if gradingContent}
           <div class="pt-3 border-t border-zinc-800/60">
             <div class="text-[11px] font-mono uppercase tracking-wider text-zinc-500 mb-1.5">Submitted work</div>
-            {#if isPdf(gradingContent) && isUrl(gradingContent)}
+            {#if gradingFileName && gradingFileName.toLowerCase().endsWith('.pdf')}
+              <iframe
+                src={gradingContent}
+                title="Submission preview"
+                class="w-full h-72 rounded border border-zinc-800 bg-white"
+              ></iframe>
+              <a
+                href={gradingContent}
+                download={gradingFileName}
+                class="mt-2 inline-flex items-center gap-1.5 text-xs text-zinc-100 hover:text-white underline underline-offset-2 break-all"
+              >
+                <ExternalLink class="w-3.5 h-3.5 shrink-0" />
+                <span class="break-all">Download {gradingFileName}</span>
+              </a>
+            {:else if gradingFileName}
+              <a
+                href={gradingContent}
+                download={gradingFileName}
+                class="inline-flex items-center gap-1.5 text-xs text-zinc-100 hover:text-white underline underline-offset-2 break-all"
+              >
+                <ExternalLink class="w-3.5 h-3.5 shrink-0" />
+                <span class="break-all">Download {gradingFileName}</span>
+              </a>
+            {:else if isPdf(gradingContent) && isUrl(gradingContent)}
               <iframe
                 src={gradingContent}
                 title="Submission preview"
@@ -1411,6 +1556,29 @@
             </div>
             <p class="text-[11px] text-zinc-500 mt-1">Deducted per day late from the raw score. 0% keeps the late label with no deduction.</p>
           </div>
+
+          {#if (newAssignFormat || '').toUpperCase().includes('PDF') || (newAssignFormat || '').toUpperCase().includes('ZIP')}
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="assign-maxmb" class="block text-xs font-medium text-zinc-400 mb-1">Max size (MB)</label>
+                <input
+                  id="assign-maxmb"
+                  type="number" min="1" max="500"
+                  bind:value={newAssignMaxMB}
+                  class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono"
+                />
+              </div>
+              <div>
+                <label for="assign-maxfiles" class="block text-xs font-medium text-zinc-400 mb-1">Max files</label>
+                <input
+                  id="assign-maxfiles"
+                  type="number" min="1" max="10"
+                  bind:value={newAssignMaxFiles}
+                  class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono"
+                />
+              </div>
+            </div>
+          {/if}
 
         <div class="flex justify-end space-x-2 pt-2 border-t border-zinc-800">
           <button on:click={() => showCreateModal = false} class="px-3 py-1.5 text-xs rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100">Cancel</button>

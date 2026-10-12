@@ -1,6 +1,6 @@
 -- name: ListAssignmentsByCourse :many
 SELECT a.AssignmentID, a.Title, a.Description, a.Deadline, a.FormatRequired, a.CourseID, a.RubricID,
-       a.LatePenaltyPerDay, a.LatePenaltyEnabled,
+       a.LatePenaltyPerDay, a.LatePenaltyEnabled, a.MaxUploadMB, a.MaxUploadFiles,
        r.Title AS RubricTitle, r.Department AS RubricDepartment,
        (SELECT GROUP_CONCAT(ab.BatchID ORDER BY ab.BatchID)
           FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID) AS BatchIDs,
@@ -16,7 +16,7 @@ ORDER BY a.Deadline ASC;
 -- Course-wide assignments (no batch rows) plus assignments targeted at the
 -- student's own batch.
 SELECT a.AssignmentID, a.Title, a.Description, a.Deadline, a.FormatRequired, a.CourseID, a.RubricID,
-       a.LatePenaltyPerDay, a.LatePenaltyEnabled,
+       a.LatePenaltyPerDay, a.LatePenaltyEnabled, a.MaxUploadMB, a.MaxUploadFiles,
        r.Title AS RubricTitle, r.Department AS RubricDepartment,
        (SELECT GROUP_CONCAT(ab.BatchID ORDER BY ab.BatchID)
           FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID) AS BatchIDs,
@@ -38,7 +38,7 @@ ORDER BY a.Deadline ASC;
 
 -- name: GetAssignmentByID :one
 SELECT a.AssignmentID, a.Title, a.Description, a.Deadline, a.FormatRequired, a.CourseID, a.RubricID,
-       a.LatePenaltyPerDay, a.LatePenaltyEnabled,
+       a.LatePenaltyPerDay, a.LatePenaltyEnabled, a.MaxUploadMB, a.MaxUploadFiles,
        r.Title AS RubricTitle, r.Department AS RubricDepartment, r.Description AS RubricDescription,
        c.CourseCode, c.Title AS CourseTitle,
        (SELECT GROUP_CONCAT(ab.BatchID ORDER BY ab.BatchID)
@@ -52,12 +52,12 @@ LEFT JOIN Rubric r ON a.RubricID = r.RubricID
 WHERE a.AssignmentID = ? LIMIT 1;
 
 -- name: CreateAssignment :execresult
-INSERT INTO Assignment (Title, Description, Deadline, FormatRequired, CourseID, RubricID, LatePenaltyPerDay, LatePenaltyEnabled)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO Assignment (Title, Description, Deadline, FormatRequired, CourseID, RubricID, LatePenaltyPerDay, LatePenaltyEnabled, MaxUploadMB, MaxUploadFiles)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: UpdateAssignment :exec
 UPDATE Assignment
-SET Title = ?, Description = ?, Deadline = ?, FormatRequired = ?, RubricID = ?, LatePenaltyPerDay = ?, LatePenaltyEnabled = ?
+SET Title = ?, Description = ?, Deadline = ?, FormatRequired = ?, RubricID = ?, LatePenaltyPerDay = ?, LatePenaltyEnabled = ?, MaxUploadMB = ?, MaxUploadFiles = ?
 WHERE AssignmentID = ?;
 
 -- name: DeleteAssignment :exec

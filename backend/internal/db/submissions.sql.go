@@ -35,18 +35,35 @@ func (q *Queries) CreateOrUpdateEvaluation(ctx context.Context, arg CreateOrUpda
 }
 
 const createSubmission = `-- name: CreateSubmission :execresult
-INSERT INTO Submission (SubmissionTime, ContentData, AssignmentID, UserID)
-VALUES (NOW(), ?, ?, ?)
+INSERT INTO Submission (SubmissionTime, ContentData, AssignmentID, UserID, FileName, MimeType)
+VALUES (NOW(), ?, ?, ?, ?, ?)
 `
 
 type CreateSubmissionParams struct {
-	Contentdata  string `json:"contentdata"`
-	Assignmentid int32  `json:"assignmentid"`
-	Userid       int32  `json:"userid"`
+	Contentdata  string         `json:"contentdata"`
+	Assignmentid int32          `json:"assignmentid"`
+	Userid       int32          `json:"userid"`
+	Filename     sql.NullString `json:"filename"`
+	Mimetype     sql.NullString `json:"mimetype"`
 }
 
 func (q *Queries) CreateSubmission(ctx context.Context, arg CreateSubmissionParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createSubmission, arg.Contentdata, arg.Assignmentid, arg.Userid)
+	return q.db.ExecContext(ctx, createSubmission,
+		arg.Contentdata,
+		arg.Assignmentid,
+		arg.Userid,
+		arg.Filename,
+		arg.Mimetype,
+	)
+}
+
+const deleteSubmissionByID = `-- name: DeleteSubmissionByID :exec
+DELETE FROM Submission WHERE SubmissionID = ?
+`
+
+func (q *Queries) DeleteSubmissionByID(ctx context.Context, submissionid int32) error {
+	_, err := q.db.ExecContext(ctx, deleteSubmissionByID, submissionid)
+	return err
 }
 
 const getStudentGradesInCourse = `-- name: GetStudentGradesInCourse :many
@@ -126,7 +143,7 @@ func (q *Queries) GetStudentGradesInCourse(ctx context.Context, arg GetStudentGr
 }
 
 const getSubmissionByID = `-- name: GetSubmissionByID :one
-SELECT s.SubmissionID, s.SubmissionTime, s.ContentData, s.AssignmentID, s.UserID,
+SELECT s.SubmissionID, s.SubmissionTime, s.ContentData, s.AssignmentID, s.UserID, s.FileName, s.MimeType,
        u.FirstName, u.LastName, u.Email,
        a.Title AS AssignmentTitle, a.Deadline, a.CourseID,
        e.Score, e.Feedback, e.UserID AS GradedByUserID
@@ -143,6 +160,8 @@ type GetSubmissionByIDRow struct {
 	Contentdata     string         `json:"contentdata"`
 	Assignmentid    int32          `json:"assignmentid"`
 	Userid          int32          `json:"userid"`
+	Filename        sql.NullString `json:"filename"`
+	Mimetype        sql.NullString `json:"mimetype"`
 	Firstname       string         `json:"firstname"`
 	Lastname        string         `json:"lastname"`
 	Email           string         `json:"email"`
@@ -163,6 +182,8 @@ func (q *Queries) GetSubmissionByID(ctx context.Context, submissionid int32) (Ge
 		&i.Contentdata,
 		&i.Assignmentid,
 		&i.Userid,
+		&i.Filename,
+		&i.Mimetype,
 		&i.Firstname,
 		&i.Lastname,
 		&i.Email,
@@ -185,6 +206,7 @@ SELECT
     s.SubmissionID,
     s.SubmissionTime,
     s.ContentData,
+    s.FileName,
     a.Deadline,
     a.LatePenaltyPerDay,
     a.LatePenaltyEnabled,
@@ -211,6 +233,7 @@ type GetSubmissionReportRow struct {
 	Submissionid       int32          `json:"submissionid"`
 	Submissiontime     sql.NullTime   `json:"submissiontime"`
 	Contentdata        string         `json:"contentdata"`
+	Filename           sql.NullString `json:"filename"`
 	Deadline           time.Time      `json:"deadline"`
 	Latepenaltyperday  string         `json:"latepenaltyperday"`
 	Latepenaltyenabled bool           `json:"latepenaltyenabled"`
@@ -237,6 +260,7 @@ func (q *Queries) GetSubmissionReport(ctx context.Context, courseid int32) ([]Ge
 			&i.Submissionid,
 			&i.Submissiontime,
 			&i.Contentdata,
+			&i.Filename,
 			&i.Deadline,
 			&i.Latepenaltyperday,
 			&i.Latepenaltyenabled,
@@ -407,6 +431,39 @@ func (q *Queries) ListStudentSubmissionsByUser(ctx context.Context, userid int32
 			&i.Latepenaltyperday,
 			&i.Latepenaltyenabled,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSubmissionFilesByAssignment = `-- name: ListSubmissionFilesByAssignment :many
+SELECT SubmissionID, FileName FROM Submission
+WHERE AssignmentID = ? AND FileName IS NOT NULL
+`
+
+type ListSubmissionFilesByAssignmentRow struct {
+	Submissionid int32          `json:"submissionid"`
+	Filename     sql.NullString `json:"filename"`
+}
+
+func (q *Queries) ListSubmissionFilesByAssignment(ctx context.Context, assignmentid int32) ([]ListSubmissionFilesByAssignmentRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSubmissionFilesByAssignment, assignmentid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSubmissionFilesByAssignmentRow{}
+	for rows.Next() {
+		var i ListSubmissionFilesByAssignmentRow
+		if err := rows.Scan(&i.Submissionid, &i.Filename); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

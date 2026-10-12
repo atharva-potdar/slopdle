@@ -52,6 +52,14 @@ func applyLatePenalty(raw float64, submitted, deadline time.Time, submittedValid
 
 func strptr(s string) *string { return &s }
 
+func nullStrPtr(ns sql.NullString) *string {
+	if !ns.Valid || ns.String == "" {
+		return nil
+	}
+	s := ns.String
+	return &s
+}
+
 func (h *AppHandler) SubmitAssignment(w http.ResponseWriter, r *http.Request) {
 	assignmentID, err := parseID(r, "id")
 	if err != nil {
@@ -289,6 +297,7 @@ func (h *AppHandler) GetSubmissionReport(w http.ResponseWriter, r *http.Request)
 		StudentID       int32   `json:"studentId"`
 		StudentName     string  `json:"studentName"`
 		SubmissionID    int32   `json:"submissionId"`
+		FileName        *string `json:"fileName"`
 		SubmissionTime  *string `json:"submissionTime"`
 		Content         string  `json:"content"`
 		Deadline        string  `json:"deadline"`
@@ -341,6 +350,7 @@ func (h *AppHandler) GetSubmissionReport(w http.ResponseWriter, r *http.Request)
 			StudentID:      row.Studentid,
 			StudentName:    row.Studentname,
 			SubmissionID:   row.Submissionid,
+			FileName:       nullStrPtr(row.Filename),
 			SubmissionTime: subTime,
 			Content:        row.Contentdata,
 			Deadline:       row.Deadline.Format("2006-01-02 15:04:05"),

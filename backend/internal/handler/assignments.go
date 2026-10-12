@@ -20,6 +20,22 @@ type CreateAssignmentRequest struct {
 	BatchIDs           []int32   `json:"batchIds"`
 	LatePenaltyPerDay  *float64  `json:"latePenaltyPerDay"`
 	LatePenaltyEnabled *bool     `json:"latePenaltyEnabled"`
+	MaxUploadMB        *int32    `json:"maxUploadMB"`
+	MaxUploadFiles     *int32    `json:"maxUploadFiles"`
+}
+
+// uploadLimits applies spec defaults (25 MB, 1 file) when omitted.
+// Non-positive values fall back to defaults (0 would reject everything).
+func uploadLimits(req CreateAssignmentRequest) (int32, int32) {
+	mb := int32(25)
+	if req.MaxUploadMB != nil && *req.MaxUploadMB > 0 {
+		mb = *req.MaxUploadMB
+	}
+	n := int32(1)
+	if req.MaxUploadFiles != nil && *req.MaxUploadFiles > 0 {
+		n = *req.MaxUploadFiles
+	}
+	return mb, n
 }
 
 // penaltySettings applies spec defaults (10.00%/day, enabled) when omitted.
@@ -128,6 +144,7 @@ func (h *AppHandler) CreateAssignment(w http.ResponseWriter, r *http.Request) {
 		rubricID = sql.NullInt32{Int32: *req.RubricID, Valid: true}
 	}
 	perDay, penaltyEnabled := penaltySettings(req)
+	maxMB, maxFiles := uploadLimits(req)
 
 	res, err := h.q.CreateAssignment(r.Context(), db.CreateAssignmentParams{
 		Title:              req.Title,
@@ -138,6 +155,8 @@ func (h *AppHandler) CreateAssignment(w http.ResponseWriter, r *http.Request) {
 		Rubricid:           rubricID,
 		Latepenaltyperday:  perDay,
 		Latepenaltyenabled: penaltyEnabled,
+		Maxuploadmb:        maxMB,
+		Maxuploadfiles:     maxFiles,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -188,6 +207,13 @@ func (h *AppHandler) UpdateAssignment(w http.ResponseWriter, r *http.Request) {
 	if req.LatePenaltyEnabled == nil {
 		penaltyEnabled = assignment.Latepenaltyenabled
 	}
+	maxMB, maxFiles := uploadLimits(req)
+	if req.MaxUploadMB == nil {
+		maxMB = assignment.Maxuploadmb
+	}
+	if req.MaxUploadFiles == nil {
+		maxFiles = assignment.Maxuploadfiles
+	}
 
 	err = h.q.UpdateAssignment(r.Context(), db.UpdateAssignmentParams{
 		Title:              req.Title,
@@ -197,6 +223,8 @@ func (h *AppHandler) UpdateAssignment(w http.ResponseWriter, r *http.Request) {
 		Rubricid:           rubricID,
 		Latepenaltyperday:  perDay,
 		Latepenaltyenabled: penaltyEnabled,
+		Maxuploadmb:        maxMB,
+		Maxuploadfiles:     maxFiles,
 		Assignmentid:       id,
 	})
 	if err != nil {
@@ -228,10 +256,27 @@ func (h *AppHandler) DeleteAssignment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Collect stored upload names first: rows cascade on delete.
+	stored := []string{}
+	if files, err := h.q.ListSubmissionFilesByAssignment(r.Context(), id); err == nil {
+		for _, f := range files {
+			if f.Filename.Valid && f.Filename.String != "" {
+				stored = append(stored, f.Filename.String)
+			}
+		}
+	}
+
 	err = h.q.DeleteAssignment(r.Context(), id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+
+	// Best-effort disk sweep (DB rows cascade; files don't). Log and continue.
+	for _, name := range stored {
+		if err := removeStoredFile(name); err != nil {
+			fmt.Printf("sweep: cannot remove upload %s: %v\n", name, err)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "assignment deleted"})

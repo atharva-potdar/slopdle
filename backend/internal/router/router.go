@@ -88,8 +88,10 @@ func NewRouter(q *db.Queries, sqlDB *sql.DB) http.Handler {
 
 			// Submissions & Evaluations
 			api.Post("/assignments/{id}/submit", h.SubmitAssignment)
+			api.Post("/assignments/{id}/upload", h.UploadSubmission)
 			api.Get("/assignments/{id}/submissions", h.ListSubmissions)
 			api.Get("/submissions/{id}", h.GetSubmission)
+			api.Get("/submissions/{id}/file", h.SubmissionFile)
 			api.Post("/submissions/{id}/evaluate", h.EvaluateSubmission)
 			api.Get("/courses/{id}/submissions/report", h.GetSubmissionReport)       // Case Study Query 3
 			api.Get("/courses/{id}/students/{studentId}/grades", h.GetStudentGrades) // Case Study Query 1

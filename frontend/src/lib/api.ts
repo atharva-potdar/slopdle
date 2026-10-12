@@ -70,6 +70,8 @@ export interface Assignment {
   batchnames?: NullString | null;
   latepenaltyperday?: string;
   latepenaltyenabled?: boolean;
+  maxuploadmb?: number;
+  maxuploadfiles?: number;
 }
 
 export interface SubmissionReportItem {
@@ -78,6 +80,7 @@ export interface SubmissionReportItem {
   studentId: number;
   studentName: string;
   submissionId: number;
+  fileName?: string | null;
   submissionTime?: string;
   content: string;
   deadline: string;
@@ -359,6 +362,30 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ contentData }),
     }),
+  // File upload needs multipart + progress: XHR, not fetch.
+  uploadSubmission: (assignmentId: number, file: File, onProgress?: (pct: number) => void) =>
+    new Promise<{ message: string; submissionIds: number[] }>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${BASE_URL}/assignments/${assignmentId}/upload`);
+      xhr.withCredentials = true;
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+          else reject(new Error(data?.error || `Upload failed (${xhr.status})`));
+        } catch (e) {
+          reject(new Error(`Upload failed (${xhr.status})`));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Upload failed (network)'));
+      const fd = new FormData();
+      fd.append('files', file, file.name);
+      xhr.send(fd);
+    }),
+  submissionFileUrl: (submissionId: number) => `${BASE_URL}/submissions/${submissionId}/file`,
   getSubmissions: (assignmentId: number) => request<any[]>(`/assignments/${assignmentId}/submissions`),
   getSubmission: (id: number) => request<any>(`/submissions/${id}`),
   evaluateSubmission: (submissionId: number, score: number, feedback: string, graderId?: number, criteria?: CriterionGradeInput[]) =>

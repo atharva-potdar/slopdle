@@ -7,7 +7,8 @@ sql:
       - "../db/migrations/004_late_penalty.up.sql"
       - "../db/migrations/005_rubric_criteria.up.sql"
       - "../db/migrations/006_notification_intent.up.sql"
-      - "../db/migrations/007_evaluation_audit.up.sql"
+      # 007 omitted: trigger DDL sqlc cannot parse; audit needs no generated code.
+      - "../db/migrations/008_uploads.up.sql"
     queries: "../db/queries"
     gen:
       go:

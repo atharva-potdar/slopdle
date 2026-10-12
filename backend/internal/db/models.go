@@ -34,6 +34,8 @@ type Assignment struct {
 	Rubricid           sql.NullInt32  `json:"rubricid"`
 	Latepenaltyperday  string         `json:"latepenaltyperday"`
 	Latepenaltyenabled bool           `json:"latepenaltyenabled"`
+	Maxuploadmb        int32          `json:"maxuploadmb"`
+	Maxuploadfiles     int32          `json:"maxuploadfiles"`
 }
 
 type Assignmentbatch struct {
@@ -155,11 +157,13 @@ type Rubriccriterion struct {
 }
 
 type Submission struct {
-	Submissionid   int32        `json:"submissionid"`
-	Submissiontime sql.NullTime `json:"submissiontime"`
-	Contentdata    string       `json:"contentdata"`
-	Assignmentid   int32        `json:"assignmentid"`
-	Userid         int32        `json:"userid"`
+	Submissionid   int32          `json:"submissionid"`
+	Submissiontime sql.NullTime   `json:"submissiontime"`
+	Contentdata    string         `json:"contentdata"`
+	Assignmentid   int32          `json:"assignmentid"`
+	Userid         int32          `json:"userid"`
+	Filename       sql.NullString `json:"filename"`
+	Mimetype       sql.NullString `json:"mimetype"`
 }
 
 type User struct {

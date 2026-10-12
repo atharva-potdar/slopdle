@@ -1,9 +1,16 @@
 -- name: CreateSubmission :execresult
-INSERT INTO Submission (SubmissionTime, ContentData, AssignmentID, UserID)
-VALUES (NOW(), ?, ?, ?);
+INSERT INTO Submission (SubmissionTime, ContentData, AssignmentID, UserID, FileName, MimeType)
+VALUES (NOW(), ?, ?, ?, ?, ?);
+
+-- name: DeleteSubmissionByID :exec
+DELETE FROM Submission WHERE SubmissionID = ?;
+
+-- name: ListSubmissionFilesByAssignment :many
+SELECT SubmissionID, FileName FROM Submission
+WHERE AssignmentID = ? AND FileName IS NOT NULL;
 
 -- name: GetSubmissionByID :one
-SELECT s.SubmissionID, s.SubmissionTime, s.ContentData, s.AssignmentID, s.UserID,
+SELECT s.SubmissionID, s.SubmissionTime, s.ContentData, s.AssignmentID, s.UserID, s.FileName, s.MimeType,
        u.FirstName, u.LastName, u.Email,
        a.Title AS AssignmentTitle, a.Deadline, a.CourseID,
        e.Score, e.Feedback, e.UserID AS GradedByUserID
@@ -51,6 +58,7 @@ SELECT
     s.SubmissionID,
     s.SubmissionTime,
     s.ContentData,
+    s.FileName,
     a.Deadline,
     a.LatePenaltyPerDay,
     a.LatePenaltyEnabled,

@@ -1,0 +1,2 @@
+ALTER TABLE Submission DROP COLUMN MimeType, DROP COLUMN FileName;
+ALTER TABLE Assignment DROP COLUMN MaxUploadFiles, DROP COLUMN MaxUploadMB;
