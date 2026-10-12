@@ -890,12 +890,19 @@
                 <td class="p-4 text-zinc-400">{rep.gradedBy}</td>
                 {#if isTeacher}
                   <td class="p-4 text-right">
-                    <button
-                      on:click={() => openGradeModal(rep)}
-                      class="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-[11px] text-zinc-300 hover:text-white hover:bg-zinc-800"
-                    >
-                      Grade
-                    </button>
+                    <div class="inline-flex flex-col items-end gap-1">
+                      {#if rep.score}
+                        <span class="inline-flex items-center rounded border border-emerald-900/60 px-1.5 py-0.5 text-[11px] font-mono text-emerald-300">
+                          GRADED
+                        </span>
+                      {/if}
+                      <button
+                        on:click={() => openGradeModal(rep)}
+                        class="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-[11px] text-zinc-300 hover:text-white hover:bg-zinc-800"
+                      >
+                        {rep.score ? 'Regrade' : 'Grade'}
+                      </button>
+                    </div>
                   </td>
                 {/if}
               </tr>
