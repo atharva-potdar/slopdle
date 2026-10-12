@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { Bell, ChevronDown, GraduationCap, LogOut, RefreshCw, User } from 'lucide-svelte';
   import type { User as UserType, NotificationItem } from '../api';
+  import { timeAgo } from '../time';
 
   export let currentUser: UserType | null;
   export let enrollments: any[] = [];
@@ -21,6 +22,8 @@
   let showUserDropdown = false;
   let showNotifDropdown = false;
   let showCourseDropdown = false;
+  let notifTab: 'all' | 'unread' = 'all';
+  let notifType = '';
 
   onMount(() => {
     const closeAll = (e: MouseEvent) => {
@@ -33,11 +36,27 @@
     return () => window.removeEventListener('click', closeAll);
   });
 
-  $: unreadCount = notifications.filter(n => n.isread?.Bool === false).length;
+  $: unreadCount = (notifications || []).filter(n => n.isread?.Bool === false).length;
   $: activeCourse = enrollments.find(e => e.courseid === selectedCourseId);
+  $: notifTypes = [...new Set((notifications || []).map((n) => n.type?.String || 'Alert'))].sort();
+  // Type filter resets when its option vanishes (else empty list, no cue).
+  $: if (notifType && !notifTypes.includes(notifType)) notifType = '';
+  $: visibleNotifs = (notifications || []).filter((n) =>
+    (notifTab === 'all' || n.isread?.Bool === false) &&
+    (!notifType || (n.type?.String || 'Alert') === notifType)
+  );
+  // "Catch me up": one-line digest of unread by type.
+  $: digest = (() => {
+    const counts = new Map<string, number>();
+    (notifications || []).filter((n) => n.isread?.Bool === false).forEach((n) => {
+      const t = (n.type?.String || 'Alert').toLowerCase();
+      counts.set(t, (counts.get(t) || 0) + 1);
+    });
+    return [...counts.entries()].map(([t, c]) => `${c} ${t}${c > 1 ? 's' : ''}`).join(' • ');
+  })();
 </script>
 
-<header class="border-b border-zinc-800 bg-zinc-950/95 sticky top-0 z-50 backdrop-blur-xs">
+<header class="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-50">
   <div class="max-w-6xl mx-auto px-4 sm:px-6">
     <div class="flex items-center justify-between h-14">
       
@@ -144,7 +163,7 @@
 
           <!-- Notifications Menu -->
           {#if showNotifDropdown}
-            <div class="absolute right-0 mt-2 w-72 rounded-md border border-zinc-800 bg-zinc-950 p-1 shadow-lg z-50">
+            <div class="absolute right-0 mt-2 w-80 rounded-md border border-zinc-800 bg-zinc-950 p-1 shadow-lg z-50">
               <div class="px-3 py-2 border-b border-zinc-800 text-xs font-medium text-zinc-400 flex justify-between items-center">
                 <span>Notifications</span>
                 <div class="flex items-center gap-2">
@@ -156,7 +175,7 @@
                       Mark all read
                     </button>
                   {:else}
-                    <span class="font-mono text-[11px] text-zinc-500">{notifications.length} total</span>
+                    <span class="font-mono text-[11px] text-zinc-500">{(notifications || []).length} total</span>
                   {/if}
                   <button
                     on:click={onRefresh}
@@ -167,11 +186,42 @@
                   </button>
                 </div>
               </div>
+              {#if digest}
+                <div class="px-3 py-1.5 border-b border-zinc-800 font-mono text-[11px] text-zinc-400">
+                  Catch up: {digest}
+                </div>
+              {/if}
+              <div class="px-2 py-1.5 border-b border-zinc-800 flex items-center gap-1.5">
+                <button
+                  on:click={() => (notifTab = 'all')}
+                  class="px-2 py-0.5 rounded text-[11px] font-mono {notifTab === 'all' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-200'}"
+                >
+                  All
+                </button>
+                <button
+                  on:click={() => (notifTab = 'unread')}
+                  class="px-2 py-0.5 rounded text-[11px] font-mono {notifTab === 'unread' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-200'}"
+                >
+                  Unread{unreadCount > 0 ? ` (${unreadCount})` : ''}
+                </button>
+                {#if notifTypes.length > 1}
+                  <select
+                    bind:value={notifType}
+                    aria-label="Filter by type"
+                    class="ml-auto rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[11px] font-mono text-zinc-400 max-w-28"
+                  >
+                    <option value="">All types</option>
+                    {#each notifTypes as t}
+                      <option value={t}>{t}</option>
+                    {/each}
+                  </select>
+                {/if}
+              </div>
               <div class="max-h-64 overflow-y-auto divide-y divide-zinc-800/40">
-                {#if notifications.length === 0}
+                {#if visibleNotifs.length === 0}
                   <div class="py-6 text-center text-xs text-zinc-500">No notifications</div>
                 {:else}
-                  {#each notifications as notif}
+                  {#each visibleNotifs as notif}
                     <button
                       class="w-full text-left p-2.5 hover:bg-zinc-900/60 rounded transition-colors flex items-start justify-between text-xs {notif.isread?.Bool === false ? 'text-zinc-100' : 'text-zinc-400'}"
                       on:click={() => onOpen(notif)}
@@ -180,7 +230,7 @@
                         <span class="font-mono text-[11px] uppercase text-zinc-500">{notif.type?.String || 'Alert'}</span>
                         <p class="text-xs mt-0.5 line-clamp-2">{notif.message}</p>
                         {#if notif.createdat?.Time}
-                          <span class="font-mono text-[11px] text-zinc-500">{new Date(notif.createdat.Time).toISOString().replace('T', ' ').slice(0, 16)}</span>
+                          <span class="font-mono text-[11px] text-zinc-500">{timeAgo(notif.createdat)}</span>
                         {/if}
                       </div>
                       {#if notif.isread?.Bool === false}
@@ -194,31 +244,26 @@
           {/if}
         </div>
 
-        <!-- User Menu -->
+        <!-- Account: avatar circle only (identity lives here, not in page heroes) -->
         <div class="relative" data-dropdown>
           <button
-            class="h-8 px-2.5 inline-flex items-center space-x-2 rounded-md border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900 text-zinc-200 text-xs transition-colors"
+            aria-label="Account menu"
+            class="h-8 w-8 inline-flex items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900 text-zinc-200 transition-colors overflow-hidden relative after:absolute after:-inset-2 after:content-['']"
             on:click={() => { showUserDropdown = !showUserDropdown; showNotifDropdown = false; showCourseDropdown = false; }}
           >
             {#if currentUser?.photos && currentUser.photos.length > 0}
-              <img src={currentUser.photos[0]} alt="avatar" class="w-4 h-4 rounded-full object-cover" />
+              <img src={currentUser.photos[0]} alt="" class="w-full h-full object-cover" />
             {:else}
-              <div class="w-4 h-4 rounded-full bg-zinc-800 text-[11px] flex items-center justify-center font-mono">
-                {currentUser?.firstName?.[0] || 'U'}
-              </div>
+              <span class="text-xs font-mono">{currentUser?.firstName?.[0] || 'U'}</span>
             {/if}
-            <span class="font-medium text-xs text-zinc-200 hidden sm:inline">{currentUser?.firstName}</span>
-            <span class="text-zinc-500 text-[11px] hidden sm:inline font-mono">
-              {currentRole || 'No Role'}
-            </span>
-            <ChevronDown class="w-3.5 h-3.5 text-zinc-500" />
           </button>
 
           <!-- Dropdown -->
           {#if showUserDropdown}
             <div class="absolute right-0 mt-2 w-56 rounded-md border border-zinc-800 bg-zinc-950 p-1 shadow-lg z-50">
-              <div class="px-2.5 py-1.5 text-[11px] font-mono text-zinc-500 border-b border-zinc-800 mb-1 truncate">
-                {currentUser?.email}
+              <div class="px-2.5 py-1.5 border-b border-zinc-800 mb-1">
+                <div class="text-xs font-medium text-zinc-100 truncate">{currentUser?.firstName} {currentUser?.lastName}</div>
+                <div class="text-[11px] font-mono text-zinc-500 truncate">{currentUser?.email} · {currentRole || 'No Role'}</div>
               </div>
               <button
                 class="w-full text-left px-2.5 py-1.5 rounded text-xs flex items-center space-x-2 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100 transition-colors"

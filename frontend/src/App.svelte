@@ -8,6 +8,8 @@
   import QAView from './lib/components/QAView.svelte';
   import { api, parseIntent, type User, type NotificationItem } from './lib/api';
   import { backdrop } from './lib/dialog';
+  import Toasts from './lib/components/Toasts.svelte';
+  import CommandPalette from './lib/components/CommandPalette.svelte';
 
   let currentUser: User | null = null;
   let activeTab: string = 'dashboard';
@@ -249,6 +251,20 @@
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') showProfile = false;
+    // Never hijack typing: palette shortcut ignored inside editable fields.
+    const tag = (e.target as HTMLElement)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target as HTMLElement)?.isContentEditable) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && currentUser) {
+      e.preventDefault();
+      palette?.launch();
+    }
+  }
+
+  let palette: CommandPalette | null = null;
+
+  function handlePaletteQuestion(questionId: number, courseId: number) {
+    handleTabChange('qa', courseId);
+    questionFocus = { id: questionId, n: Date.now() };
   }
 </script>
 
@@ -439,6 +455,18 @@
     </div>
   {/if}
 
+  {/if}
+
+  <Toasts />
+  {#if currentUser}
+    <CommandPalette
+      bind:this={palette}
+      {enrollments}
+      {selectedCourseId}
+      {activeTab}
+      onNavigate={handleTabChange}
+      onQuestion={handlePaletteQuestion}
+    />
   {/if}
 
 </div>

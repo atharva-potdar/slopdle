@@ -1,6 +1,9 @@
 <script lang="ts">
   import { api, type AttendanceSummary, type User } from '../api';
   import { backdrop } from '../dialog';
+  import { toast } from '../toast';
+  import { downloadCSV } from '../csv';
+  import { fmtDate } from '../time';
 
   export let currentUser: User;
   export let selectedCourseId: number;
@@ -24,7 +27,31 @@
 
   // Bulk attendance form
   let showBulkModal = false;
-  let bulkStatus = 'Present';
+  // Per-student overrides: default everything Present, untick absentees.
+  let bulkRows: Record<number, string> = {};
+  // Modal-local session: the shared recorder select must not move with it.
+  let bulkSessionId = 0;
+
+  function stuId(st: any): number {
+    return Number(st.userid ?? st.UserID ?? 0);
+  }
+
+  function openBulkModal() {
+    if (students.length === 0) {
+      toast('No students enrolled');
+      return;
+    }
+    bulkSessionId = selectedSessionId;
+    bulkRows = Object.fromEntries(
+      students.filter((st) => stuId(st) > 0).map((st) => [stuId(st), 'Present'])
+    );
+    showBulkModal = true;
+  }
+
+  function closeBulkModal() {
+    showBulkModal = false;
+    bulkRows = {};
+  }
 
   $: isStudent = currentRole === 'Student';
   $: isTeacher = currentRole === 'Teacher' || currentRole === 'Teaching Assistant';
@@ -62,7 +89,7 @@
 
   function closeModals() {
     showSessionModal = false;
-    showBulkModal = false;
+    closeBulkModal();
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -101,17 +128,23 @@
   }
 
   async function handleBulkAttendance() {
-    if (!selectedSessionId || students.length === 0) return;
+    if (!bulkSessionId || students.length === 0) return;
     try {
-      const records = students.map(st => ({ userId: st.userid || st.UserID, status: bulkStatus }));
-      await api.recordBulkAttendance(selectedSessionId, records);
-      showBulkModal = false;
-      statusUpdateMsg = `Bulk recorded ${bulkStatus} for ${records.length} students in session #${selectedSessionId}.`;
+      const targets = students.filter((st) => stuId(st) > 0);
+      const records = targets.map((st) => ({ userId: stuId(st), status: bulkRows[stuId(st)] || 'Present' }));
+      await api.recordBulkAttendance(bulkSessionId, records);
+      const absent = records.filter((r) => r.status !== 'Present').length;
+      closeBulkModal();
+      statusUpdateMsg = `Recorded ${records.length - absent} present${absent ? `, ${absent} marked` : ''} in session #${bulkSessionId}.`;
       await loadAttendanceData();
       setTimeout(() => statusUpdateMsg = '', 2500);
     } catch (err: any) {
       alert(err.message);
     }
+  }
+
+  async function markAllBulk(status: string) {
+    bulkRows = Object.fromEntries(students.map((st) => [stuId(st), status]));
   }
 </script>
 
@@ -126,8 +159,8 @@
       <p class="text-xs text-zinc-500 mt-0.5">{isStudent ? 'Your attendance record' : 'Manage and track student class attendance'}</p>
     </div>
 
-    {#if !isStudent}
-      <div class="flex items-center space-x-2">
+    <div class="flex items-center space-x-2">
+      {#if !isStudent}
         <label for="inspect-student-select" class="text-xs text-zinc-500">Inspecting:</label>
         <select
           id="inspect-student-select"
@@ -139,13 +172,34 @@
             <option value={st.userid || st.UserID}>{st.firstname || st.FirstName} {st.lastname || st.LastName}</option>
           {/each}
         </select>
+      {/if}
         {#if isTeacher}
           <button
-            on:click={() => showBulkModal = true}
+            on:click={openBulkModal}
             class="rounded-md border border-zinc-800 bg-zinc-900/40 px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-900 transition-colors"
           >
             Bulk Mark
           </button>
+        {/if}
+          <button
+            on:click={() => {
+              if (!attendance) {
+                toast('No attendance loaded');
+                return;
+              }
+              downloadCSV(`attendance-${selectedCourseId}-${selectedStudentId}.csv`, [
+                ['Session', 'Date', 'Room', 'Batch', 'Status'],
+                ...attendance.sessions.map((s) => [
+                  String(s.sessionId), s.startTime, s.roomLocation, s.batchName, s.attendanceStatus,
+                ]),
+              ]);
+              toast(`Exported ${attendance.sessions.length} sessions`);
+            }}
+            class="rounded-md border border-zinc-800 bg-zinc-900/40 px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-900 transition-colors"
+          >
+            CSV
+          </button>
+          {#if isTeacher}
           <button
             on:click={() => showSessionModal = true}
             class="rounded-md bg-zinc-100 text-zinc-950 px-2.5 py-1.5 text-xs font-medium hover:bg-zinc-200 transition-colors"
@@ -154,7 +208,6 @@
           </button>
         {/if}
       </div>
-    {/if}
   </div>
 
   <!-- Metric Row -->
@@ -256,9 +309,9 @@
           class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-1.5 text-xs text-zinc-100"
         >
           {#each sessions as ses}
-            <option value={ses.sessionid}>
-              #{ses.sessionid} - {ses.batchname} ({new Date(ses.starttime).toISOString().split('T')[0]})
-            </option>
+              <option value={ses.sessionid}>
+                #{ses.sessionid} - {ses.batchname} ({fmtDate(ses.starttime)})
+              </option>
           {/each}
         </select>
       </div>
@@ -354,45 +407,62 @@
   <!-- Bulk Attendance Modal -->
   {#if showBulkModal}
     <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={closeModals}>
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
-        <h3 class="text-sm font-semibold text-zinc-100">Bulk Attendance</h3>
-        <p class="text-xs text-zinc-500">Apply one status to all {students.length} enrolled students.</p>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-semibold text-zinc-100">Bulk Attendance</h3>
+            <p class="text-xs text-zinc-500">All default Present — untick absentees, then apply.</p>
+          </div>
+          <div class="flex gap-1.5">
+            <button on:click={() => markAllBulk('Present')} class="px-2 py-1 text-[11px] font-mono rounded border border-zinc-800 text-zinc-400 hover:text-zinc-100">All P</button>
+            <button on:click={() => markAllBulk('Absent')} class="px-2 py-1 text-[11px] font-mono rounded border border-zinc-800 text-zinc-400 hover:text-zinc-100">All A</button>
+          </div>
+        </div>
 
         <div>
           <label for="bulk-session-select" class="block text-xs font-medium text-zinc-400 mb-1">Session</label>
           <select
             id="bulk-session-select"
-            bind:value={selectedSessionId}
+            bind:value={bulkSessionId}
             class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 "
           >
             {#each sessions as ses}
-              <option value={ses.sessionid}>#{ses.sessionid} - {ses.batchname} ({new Date(ses.starttime).toISOString().split('T')[0]})</option>
+              <option value={ses.sessionid}>#{ses.sessionid} - {ses.batchname} ({fmtDate(ses.starttime)})</option>
             {/each}
           </select>
         </div>
 
-        <div>
-          <span class="block text-xs font-medium text-zinc-400 mb-1.5">Status</span>
-          <div class="grid grid-cols-3 gap-1.5">
-            {#each ['Present', 'Absent', 'Excused'] as st}
-              <button
-                class="py-2 text-xs font-medium rounded-md border transition-colors {bulkStatus === st ? 'bg-zinc-100 text-zinc-950 border-zinc-100' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-200'}"
-                on:click={() => bulkStatus = st}
-              >
-                {st}
-              </button>
-            {/each}
-          </div>
+        <div class="max-h-64 overflow-y-auto divide-y divide-zinc-800/40 rounded-md border border-zinc-800">
+          {#each students as st}
+            <div class="flex items-center justify-between px-3 py-1.5">
+              <span class="text-xs text-zinc-300 truncate">{st.firstname || st.FirstName} {st.lastname || st.LastName}</span>
+              <div class="flex gap-1">
+                {#each ['Present', 'Absent', 'Excused'] as s}
+                  <button
+                    on:click={() => { bulkRows = { ...bulkRows, [stuId(st)]: s }; }}
+                    title={s}
+                    aria-label={`Mark ${st.firstname || st.FirstName} ${s}`}
+                    class="w-6 h-6 rounded text-[11px] font-mono border transition-colors {(bulkRows[stuId(st)] || 'Present') === s ? 'bg-zinc-100 text-zinc-950 border-zinc-100' : 'border-zinc-800 text-zinc-500 hover:text-zinc-200'}"
+                  >
+                    {s[0]}
+                  </button>
+                {/each}
+              </div>
+            </div>
+          {/each}
+          {#if students.length === 0}
+            <div class="p-4 text-center text-xs text-zinc-500">No students enrolled.</div>
+          {/if}
         </div>
 
         <div class="flex justify-end space-x-2 pt-2 border-t border-zinc-800">
-          <button on:click={() => showBulkModal = false} class="px-3 py-1.5 text-xs rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100">Cancel</button>
+          <button on:click={closeBulkModal} class="px-3 py-1.5 text-xs rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100">Cancel</button>
           <button
             on:click={handleBulkAttendance}
-            disabled={students.length === 0 || !selectedSessionId}
+            disabled={students.length === 0 || !bulkSessionId}
             class="px-3 py-1.5 text-xs rounded-md bg-zinc-100 text-zinc-950 font-medium hover:bg-zinc-200 disabled:opacity-50"
           >
-            Apply to All
+            Apply ({students.length})
           </button>
         </div>
       </div>

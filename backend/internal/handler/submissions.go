@@ -286,6 +286,7 @@ func (h *AppHandler) GetSubmissionReport(w http.ResponseWriter, r *http.Request)
 	type ReportItem struct {
 		AssignmentID    int32   `json:"assignmentId"`
 		AssignmentName  string  `json:"assignmentName"`
+		StudentID       int32   `json:"studentId"`
 		StudentName     string  `json:"studentName"`
 		SubmissionID    int32   `json:"submissionId"`
 		SubmissionTime  *string `json:"submissionTime"`
@@ -337,6 +338,7 @@ func (h *AppHandler) GetSubmissionReport(w http.ResponseWriter, r *http.Request)
 		items = append(items, ReportItem{
 			AssignmentID:   row.Assignmentid,
 			AssignmentName: row.Assignmentname,
+			StudentID:      row.Studentid,
 			StudentName:    row.Studentname,
 			SubmissionID:   row.Submissionid,
 			SubmissionTime: subTime,

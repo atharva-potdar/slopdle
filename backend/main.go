@@ -26,7 +26,7 @@ func main() {
 	}
 	if dsn == "" {
 		// Default to local Unix socket auth on MariaDB for user 'atharva-potdar'
-		dsn = "atharva-potdar@unix(/run/mysqld/mysqld.sock)/test?parseTime=true"
+		dsn = "atharva-potdar@unix(/run/mysqld/mysqld.sock)/test?parseTime=true&loc=Local"
 	}
 
 	log.Printf("Connecting to MariaDB: %s", dsn)

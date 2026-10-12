@@ -75,6 +75,7 @@ export interface Assignment {
 export interface SubmissionReportItem {
   assignmentId: number;
   assignmentName: string;
+  studentId: number;
   studentName: string;
   submissionId: number;
   submissionTime?: string;

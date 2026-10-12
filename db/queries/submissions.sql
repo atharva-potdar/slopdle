@@ -47,6 +47,7 @@ SELECT
     a.AssignmentID,
     a.Title AS AssignmentName,
     CONCAT(Student.FirstName, ' ', Student.LastName) AS StudentName,
+    s.UserID AS StudentID,
     s.SubmissionID,
     s.SubmissionTime,
     s.ContentData,

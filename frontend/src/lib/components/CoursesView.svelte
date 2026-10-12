@@ -3,6 +3,8 @@
   import { ExternalLink, Plus, Trash2 } from 'lucide-svelte';
   import ProfileCard from './ProfileCard.svelte';
   import { backdrop } from '../dialog';
+  import { toast, undoableDelete } from '../toast';
+  import { downloadCSV } from '../csv';
   import {
     api, nullStr, type Course, type ResourceCategory,
     type Resource
@@ -187,12 +189,53 @@
   }
 
   async function handleUnenroll(userId: number) {
-    try {
-      await api.unenroll(selectedCourseId, userId);
-      enrollments = await api.getEnrollments(selectedCourseId);
-    } catch (err: any) {
-      alert(err.message);
+    const e = enrollments.find((x: any) => x.userid === userId);
+    const cid = selectedCourseId;
+    undoableDelete(`Enrollment of ${e?.firstname || ''} ${e?.lastname || ''}`.trim() || 'Enrollment', async () => {
+      try {
+        await api.unenroll(cid, userId);
+      } catch (err) {
+        if (selectedCourseId === cid) enrollments = await api.getEnrollments(cid).catch(() => enrollments);
+        throw err;
+      }
+      if (selectedCourseId !== cid) return;
+      enrollments = await api.getEnrollments(cid);
+    });
+  }
+
+  // Bulk enroll: emails matched against known users, per-row report.
+  let bulkEnrollText = '';
+  let bulkEnrolling = false;
+  let bulkEnrollReport: { email: string; ok: boolean; error?: string }[] = [];
+
+  async function handleBulkEnroll() {
+    const cid = selectedCourseId;
+    const roleId = enrollRoleId;
+    const emails = [...new Set(
+      bulkEnrollText.split(/[\n,;]+/).map((s) => s.trim().toLowerCase()).filter(Boolean)
+    )].slice(0, 500);
+    if (emails.length === 0) return;
+    bulkEnrolling = true;
+    bulkEnrollReport = [];
+    const userIdOf = (x: any): number => x.userId ?? x.userid ?? 0;
+    const emailOf = (x: any): string => String(x.email || '').toLowerCase();
+    for (const email of emails) {
+      const u = allUsers.find((x: any) => emailOf(x) === email && userIdOf(x) > 0);
+      if (!u) {
+        bulkEnrollReport = [...bulkEnrollReport, { email, ok: false, error: 'unknown user' }];
+        continue;
+      }
+      try {
+        await api.enroll(cid, userIdOf(u), roleId);
+        bulkEnrollReport = [...bulkEnrollReport, { email, ok: true }];
+      } catch (err: any) {
+        bulkEnrollReport = [...bulkEnrollReport, { email, ok: false, error: err.message }];
+      }
     }
+    bulkEnrolling = false;
+    if (selectedCourseId === cid) enrollments = await api.getEnrollments(cid).catch(() => enrollments);
+    const ok = bulkEnrollReport.filter((r) => r.ok).length;
+    toast(`Enrolled ${ok}/${emails.length}`);
   }
 
   async function handleUpdateEnrollmentBatch(enrollmentId: number, batchId: number) {
@@ -215,34 +258,49 @@
   }
 
   async function handleDeletePrereq(requiredCourseId: number) {
-    try {
-      await api.deletePrerequisite(selectedCourseId, requiredCourseId);
-      prerequisites = await api.getPrerequisites(selectedCourseId);
-    } catch (err: any) {
-      alert(err.message);
-    }
+    const cid = selectedCourseId;
+    undoableDelete('Prerequisite link', async () => {
+      try {
+        await api.deletePrerequisite(cid, requiredCourseId);
+      } catch (err) {
+        if (selectedCourseId === cid) prerequisites = await api.getPrerequisites(cid).catch(() => prerequisites);
+        throw err;
+      }
+      if (selectedCourseId !== cid) return;
+      prerequisites = await api.getPrerequisites(cid);
+    });
   }
 
   async function handleDeleteBatch(batchId: number) {
-    if (!confirm('Delete this batch? Sessions and enrollments referencing it may block deletion.')) return;
-    try {
-      await api.deleteBatch(batchId);
-      batches = await api.getBatches(selectedCourseId);
+    const b = batches.find((x: any) => x.batchid === batchId);
+    const cid = selectedCourseId;
+    undoableDelete(`Batch "${b?.batchname || batchId}"`, async () => {
+      try {
+        await api.deleteBatch(batchId);
+      } catch (err) {
+        if (selectedCourseId === cid) batches = await api.getBatches(cid).catch(() => batches);
+        throw err;
+      }
+      if (selectedCourseId !== cid) return;
+      batches = await api.getBatches(cid);
       // Roster rows show batch names; refresh them too.
-      if (isTeacher) enrollments = await api.getEnrollments(selectedCourseId).catch(() => enrollments);
-    } catch (err: any) {
-      alert(err.message);
-    }
+      if (isTeacher) enrollments = await api.getEnrollments(cid).catch(() => enrollments);
+    });
   }
 
   async function handleDeleteResource(resourceId: number) {
-    if (!confirm('Delete this resource?')) return;
-    try {
-      await api.deleteResource(resourceId);
-      resources = await api.getResources(selectedCourseId);
-    } catch (err: any) {
-      alert(err.message);
-    }
+    const r = resources.find((x) => x.resourceid === resourceId);
+    const cid = selectedCourseId;
+    undoableDelete(`Resource "${r?.title || resourceId}"`, async () => {
+      try {
+        await api.deleteResource(resourceId);
+      } catch (err) {
+        if (selectedCourseId === cid) resources = await api.getResources(cid).catch(() => resources);
+        throw err;
+      }
+      if (selectedCourseId !== cid) return;
+      resources = await api.getResources(cid);
+    });
   }
 </script>
 <svelte:window on:keydown={handleKeydown} />
@@ -555,7 +613,24 @@
       
       <!-- Current Enrollments -->
       <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-5">
-        <h3 class="text-sm font-semibold text-zinc-100">Enrolled Students & Faculty</h3>
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="text-sm font-semibold text-zinc-100">Enrolled Students & Faculty</h3>
+          <button
+            on:click={() => {
+              downloadCSV(`roster-${selectedCourseId}.csv`, [
+                ['Name', 'Email', 'Role', 'Batch'],
+                ...enrollments.map((e: any) => [
+                  `${e.firstname} ${e.lastname}`, e.email, e.rolename,
+                  e.batchname?.Valid ? e.batchname.String : '',
+                ]),
+              ]);
+              toast(`Exported ${enrollments.length} rows`);
+            }}
+            class="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] font-mono text-zinc-400 hover:text-zinc-100 transition-colors"
+          >
+            CSV
+          </button>
+        </div>
         <p class="text-xs text-zinc-500 mb-4">Course roster</p>
 
         <div class="divide-y divide-zinc-800/40 max-h-72 overflow-y-auto">
@@ -649,6 +724,36 @@
         {#if enrollStatusMsg}
           <div class="p-3 rounded-md border text-xs {enrollStatusErr ? 'border-red-900/60 bg-red-950/30 text-red-300' : 'border-emerald-900/60 bg-emerald-950/30 text-emerald-300'}">
             {enrollStatusMsg}
+          </div>
+        {/if}
+      </div>
+
+      <!-- Bulk Enroll via CSV / email list -->
+      <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-5 space-y-4">
+        <div>
+          <h3 class="text-sm font-semibold text-zinc-100">Bulk Enroll</h3>
+          <p class="text-xs text-zinc-500">Paste emails (one per line or comma-separated). Matched against known users, enrolled as the role above. Per-row report below.</p>
+        </div>
+        <textarea
+          bind:value={bulkEnrollText}
+          rows="4"
+          placeholder={"bob.student@university.edu\nemma.student@university.edu"}
+          class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs font-mono text-zinc-100 placeholder:text-zinc-600"
+        ></textarea>
+        <button
+          on:click={handleBulkEnroll}
+          disabled={!bulkEnrollText.trim() || bulkEnrolling}
+          class="w-full rounded-md bg-zinc-100 text-zinc-950 py-2 text-xs font-medium hover:bg-zinc-200 transition-colors disabled:opacity-50"
+        >
+          {bulkEnrolling ? 'Enrolling…' : 'Enroll List'}
+        </button>
+        {#if bulkEnrollReport.length > 0}
+          <div class="max-h-40 overflow-y-auto divide-y divide-zinc-800/40 rounded-md border border-zinc-800 font-mono text-[11px]">
+            {#each bulkEnrollReport as row}
+              <div class="px-2.5 py-1.5 {row.ok ? 'text-emerald-300' : 'text-red-300'}">
+                {row.ok ? '✓' : '✗'} {row.email}{row.ok ? '' : ` — ${row.error}`}
+              </div>
+            {/each}
           </div>
         {/if}
       </div>

@@ -181,6 +181,7 @@ SELECT
     a.AssignmentID,
     a.Title AS AssignmentName,
     CONCAT(Student.FirstName, ' ', Student.LastName) AS StudentName,
+    s.UserID AS StudentID,
     s.SubmissionID,
     s.SubmissionTime,
     s.ContentData,
@@ -206,6 +207,7 @@ type GetSubmissionReportRow struct {
 	Assignmentid       int32          `json:"assignmentid"`
 	Assignmentname     string         `json:"assignmentname"`
 	Studentname        string         `json:"studentname"`
+	Studentid          int32          `json:"studentid"`
 	Submissionid       int32          `json:"submissionid"`
 	Submissiontime     sql.NullTime   `json:"submissiontime"`
 	Contentdata        string         `json:"contentdata"`
@@ -231,6 +233,7 @@ func (q *Queries) GetSubmissionReport(ctx context.Context, courseid int32) ([]Ge
 			&i.Assignmentid,
 			&i.Assignmentname,
 			&i.Studentname,
+			&i.Studentid,
 			&i.Submissionid,
 			&i.Submissiontime,
 			&i.Contentdata,
