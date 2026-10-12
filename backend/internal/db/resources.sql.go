@@ -10,6 +10,21 @@ import (
 	"database/sql"
 )
 
+const addResourceBatch = `-- name: AddResourceBatch :exec
+INSERT IGNORE INTO ResourceBatch (ResourceID, BatchID)
+VALUES (?, ?)
+`
+
+type AddResourceBatchParams struct {
+	Resourceid int32 `json:"resourceid"`
+	Batchid    int32 `json:"batchid"`
+}
+
+func (q *Queries) AddResourceBatch(ctx context.Context, arg AddResourceBatchParams) error {
+	_, err := q.db.ExecContext(ctx, addResourceBatch, arg.Resourceid, arg.Batchid)
+	return err
+}
+
 const createCategory = `-- name: CreateCategory :execresult
 INSERT INTO ResourceCategory (CategoryName, CourseID)
 VALUES (?, ?)
@@ -45,6 +60,15 @@ DELETE FROM Resource WHERE ResourceID = ?
 
 func (q *Queries) DeleteResource(ctx context.Context, resourceid int32) error {
 	_, err := q.db.ExecContext(ctx, deleteResource, resourceid)
+	return err
+}
+
+const deleteResourceBatches = `-- name: DeleteResourceBatches :exec
+DELETE FROM ResourceBatch WHERE ResourceID = ?
+`
+
+func (q *Queries) DeleteResourceBatches(ctx context.Context, resourceid int32) error {
+	_, err := q.db.ExecContext(ctx, deleteResourceBatches, resourceid)
 	return err
 }
 
@@ -121,28 +145,148 @@ func (q *Queries) ListCategoriesByCourse(ctx context.Context, courseid int32) ([
 	return items, nil
 }
 
-const listResourcesByCategory = `-- name: ListResourcesByCategory :many
-SELECT ResourceID, Title, FileURL, UploadedAt, CategoryID
-FROM Resource
-WHERE CategoryID = ?
-ORDER BY UploadedAt DESC
+const listResourceBatches = `-- name: ListResourceBatches :many
+SELECT b.BatchID, b.BatchName
+FROM ResourceBatch rb
+JOIN Batch b ON b.BatchID = rb.BatchID
+WHERE rb.ResourceID = ?
+ORDER BY b.BatchName ASC
 `
 
-func (q *Queries) ListResourcesByCategory(ctx context.Context, categoryid int32) ([]Resource, error) {
+type ListResourceBatchesRow struct {
+	Batchid   int32  `json:"batchid"`
+	Batchname string `json:"batchname"`
+}
+
+func (q *Queries) ListResourceBatches(ctx context.Context, resourceid int32) ([]ListResourceBatchesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listResourceBatches, resourceid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListResourceBatchesRow{}
+	for rows.Next() {
+		var i ListResourceBatchesRow
+		if err := rows.Scan(&i.Batchid, &i.Batchname); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listResourcesByCategory = `-- name: ListResourcesByCategory :many
+SELECT r.ResourceID, r.Title, r.FileURL, r.UploadedAt, r.CategoryID,
+       (SELECT GROUP_CONCAT(rb.BatchID ORDER BY rb.BatchID)
+          FROM ResourceBatch rb WHERE rb.ResourceID = r.ResourceID) AS BatchIDs,
+       (SELECT GROUP_CONCAT(b.BatchName ORDER BY b.BatchName SEPARATOR ', ')
+          FROM ResourceBatch rb JOIN Batch b ON b.BatchID = rb.BatchID
+          WHERE rb.ResourceID = r.ResourceID) AS BatchNames
+FROM Resource r
+WHERE r.CategoryID = ?
+ORDER BY r.UploadedAt DESC
+`
+
+type ListResourcesByCategoryRow struct {
+	Resourceid int32          `json:"resourceid"`
+	Title      string         `json:"title"`
+	Fileurl    string         `json:"fileurl"`
+	Uploadedat sql.NullTime   `json:"uploadedat"`
+	Categoryid int32          `json:"categoryid"`
+	Batchids   sql.NullString `json:"batchids"`
+	Batchnames sql.NullString `json:"batchnames"`
+}
+
+func (q *Queries) ListResourcesByCategory(ctx context.Context, categoryid int32) ([]ListResourcesByCategoryRow, error) {
 	rows, err := q.db.QueryContext(ctx, listResourcesByCategory, categoryid)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Resource{}
+	items := []ListResourcesByCategoryRow{}
 	for rows.Next() {
-		var i Resource
+		var i ListResourcesByCategoryRow
 		if err := rows.Scan(
 			&i.Resourceid,
 			&i.Title,
 			&i.Fileurl,
 			&i.Uploadedat,
 			&i.Categoryid,
+			&i.Batchids,
+			&i.Batchnames,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listResourcesByCategoryForStudent = `-- name: ListResourcesByCategoryForStudent :many
+SELECT r.ResourceID, r.Title, r.FileURL, r.UploadedAt, r.CategoryID,
+       (SELECT GROUP_CONCAT(rb.BatchID ORDER BY rb.BatchID)
+          FROM ResourceBatch rb WHERE rb.ResourceID = r.ResourceID) AS BatchIDs,
+       (SELECT GROUP_CONCAT(b.BatchName ORDER BY b.BatchName SEPARATOR ', ')
+          FROM ResourceBatch rb JOIN Batch b ON b.BatchID = rb.BatchID
+          WHERE rb.ResourceID = r.ResourceID) AS BatchNames
+FROM Resource r
+JOIN ResourceCategory c ON r.CategoryID = c.CategoryID
+WHERE r.CategoryID = ?
+  AND (
+      NOT EXISTS (SELECT 1 FROM ResourceBatch rb WHERE rb.ResourceID = r.ResourceID)
+      OR EXISTS (
+          SELECT 1 FROM ResourceBatch rb
+          JOIN Enrollment e ON e.BatchID = rb.BatchID
+          WHERE rb.ResourceID = r.ResourceID AND e.UserID = ? AND e.CourseID = c.CourseID
+      )
+  )
+ORDER BY r.UploadedAt DESC
+`
+
+type ListResourcesByCategoryForStudentParams struct {
+	Categoryid int32 `json:"categoryid"`
+	Userid     int32 `json:"userid"`
+}
+
+type ListResourcesByCategoryForStudentRow struct {
+	Resourceid int32          `json:"resourceid"`
+	Title      string         `json:"title"`
+	Fileurl    string         `json:"fileurl"`
+	Uploadedat sql.NullTime   `json:"uploadedat"`
+	Categoryid int32          `json:"categoryid"`
+	Batchids   sql.NullString `json:"batchids"`
+	Batchnames sql.NullString `json:"batchnames"`
+}
+
+func (q *Queries) ListResourcesByCategoryForStudent(ctx context.Context, arg ListResourcesByCategoryForStudentParams) ([]ListResourcesByCategoryForStudentRow, error) {
+	rows, err := q.db.QueryContext(ctx, listResourcesByCategoryForStudent, arg.Categoryid, arg.Userid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListResourcesByCategoryForStudentRow{}
+	for rows.Next() {
+		var i ListResourcesByCategoryForStudentRow
+		if err := rows.Scan(
+			&i.Resourceid,
+			&i.Title,
+			&i.Fileurl,
+			&i.Uploadedat,
+			&i.Categoryid,
+			&i.Batchids,
+			&i.Batchnames,
 		); err != nil {
 			return nil, err
 		}
@@ -159,7 +303,12 @@ func (q *Queries) ListResourcesByCategory(ctx context.Context, categoryid int32)
 
 const listResourcesByCourse = `-- name: ListResourcesByCourse :many
 SELECT r.ResourceID, r.Title, r.FileURL, r.UploadedAt, r.CategoryID,
-       c.CategoryName
+       c.CategoryName,
+       (SELECT GROUP_CONCAT(rb.BatchID ORDER BY rb.BatchID)
+          FROM ResourceBatch rb WHERE rb.ResourceID = r.ResourceID) AS BatchIDs,
+       (SELECT GROUP_CONCAT(b.BatchName ORDER BY b.BatchName SEPARATOR ', ')
+          FROM ResourceBatch rb JOIN Batch b ON b.BatchID = rb.BatchID
+          WHERE rb.ResourceID = r.ResourceID) AS BatchNames
 FROM Resource r
 JOIN ResourceCategory c ON r.CategoryID = c.CategoryID
 WHERE c.CourseID = ?
@@ -167,12 +316,14 @@ ORDER BY c.CategoryName ASC, r.UploadedAt DESC
 `
 
 type ListResourcesByCourseRow struct {
-	Resourceid   int32        `json:"resourceid"`
-	Title        string       `json:"title"`
-	Fileurl      string       `json:"fileurl"`
-	Uploadedat   sql.NullTime `json:"uploadedat"`
-	Categoryid   int32        `json:"categoryid"`
-	Categoryname string       `json:"categoryname"`
+	Resourceid   int32          `json:"resourceid"`
+	Title        string         `json:"title"`
+	Fileurl      string         `json:"fileurl"`
+	Uploadedat   sql.NullTime   `json:"uploadedat"`
+	Categoryid   int32          `json:"categoryid"`
+	Categoryname string         `json:"categoryname"`
+	Batchids     sql.NullString `json:"batchids"`
+	Batchnames   sql.NullString `json:"batchnames"`
 }
 
 func (q *Queries) ListResourcesByCourse(ctx context.Context, courseid int32) ([]ListResourcesByCourseRow, error) {
@@ -191,6 +342,78 @@ func (q *Queries) ListResourcesByCourse(ctx context.Context, courseid int32) ([]
 			&i.Uploadedat,
 			&i.Categoryid,
 			&i.Categoryname,
+			&i.Batchids,
+			&i.Batchnames,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listResourcesByCourseForStudent = `-- name: ListResourcesByCourseForStudent :many
+SELECT r.ResourceID, r.Title, r.FileURL, r.UploadedAt, r.CategoryID,
+       c.CategoryName,
+       (SELECT GROUP_CONCAT(rb.BatchID ORDER BY rb.BatchID)
+          FROM ResourceBatch rb WHERE rb.ResourceID = r.ResourceID) AS BatchIDs,
+       (SELECT GROUP_CONCAT(b.BatchName ORDER BY b.BatchName SEPARATOR ', ')
+          FROM ResourceBatch rb JOIN Batch b ON b.BatchID = rb.BatchID
+          WHERE rb.ResourceID = r.ResourceID) AS BatchNames
+FROM Resource r
+JOIN ResourceCategory c ON r.CategoryID = c.CategoryID
+WHERE c.CourseID = ?
+  AND (
+      NOT EXISTS (SELECT 1 FROM ResourceBatch rb WHERE rb.ResourceID = r.ResourceID)
+      OR EXISTS (
+          SELECT 1 FROM ResourceBatch rb
+          JOIN Enrollment e ON e.BatchID = rb.BatchID
+          WHERE rb.ResourceID = r.ResourceID AND e.UserID = ? AND e.CourseID = c.CourseID
+      )
+  )
+ORDER BY c.CategoryName ASC, r.UploadedAt DESC
+`
+
+type ListResourcesByCourseForStudentParams struct {
+	Courseid int32 `json:"courseid"`
+	Userid   int32 `json:"userid"`
+}
+
+type ListResourcesByCourseForStudentRow struct {
+	Resourceid   int32          `json:"resourceid"`
+	Title        string         `json:"title"`
+	Fileurl      string         `json:"fileurl"`
+	Uploadedat   sql.NullTime   `json:"uploadedat"`
+	Categoryid   int32          `json:"categoryid"`
+	Categoryname string         `json:"categoryname"`
+	Batchids     sql.NullString `json:"batchids"`
+	Batchnames   sql.NullString `json:"batchnames"`
+}
+
+func (q *Queries) ListResourcesByCourseForStudent(ctx context.Context, arg ListResourcesByCourseForStudentParams) ([]ListResourcesByCourseForStudentRow, error) {
+	rows, err := q.db.QueryContext(ctx, listResourcesByCourseForStudent, arg.Courseid, arg.Userid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListResourcesByCourseForStudentRow{}
+	for rows.Next() {
+		var i ListResourcesByCourseForStudentRow
+		if err := rows.Scan(
+			&i.Resourceid,
+			&i.Title,
+			&i.Fileurl,
+			&i.Uploadedat,
+			&i.Categoryid,
+			&i.Categoryname,
+			&i.Batchids,
+			&i.Batchnames,
 		); err != nil {
 			return nil, err
 		}

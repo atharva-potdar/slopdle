@@ -13,8 +13,10 @@ run: build
 
 migrate:
 	mariadb -u atharva-potdar test < ../db/migrations/001_schema.up.sql
+	mariadb -u atharva-potdar test < ../db/migrations/003_batch_scoping.up.sql
 
 migrate-down:
+	mariadb -u atharva-potdar test < ../db/migrations/003_batch_scoping.down.sql
 	mariadb -u atharva-potdar test < ../db/migrations/001_schema.down.sql
 
 seed:

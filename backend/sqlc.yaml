@@ -1,7 +1,9 @@
 version: "2"
 sql:
   - engine: "mysql"
-    schema: "../db/migrations/001_schema.up.sql"
+    schema:
+      - "../db/migrations/001_schema.up.sql"
+      - "../db/migrations/003_batch_scoping.up.sql"
     queries: "../db/queries"
     gen:
       go:

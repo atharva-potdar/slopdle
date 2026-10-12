@@ -17,21 +17,22 @@ type CreateNotificationRequest struct {
 }
 
 func (h *AppHandler) GetNotifications(w http.ResponseWriter, r *http.Request) {
-	userID := int32(0)
-	if ctxUserID, ok := middleware.GetUserID(r.Context()); ok {
-		userID = ctxUserID
-	} else if qUser := r.URL.Query().Get("userId"); qUser != "" {
-		if id, err := strconv.ParseInt(qUser, 10, 32); err == nil {
-			userID = int32(id)
-		}
-	}
-
-	if userID == 0 {
-		writeError(w, http.StatusBadRequest, "userId required")
+	ctxUserID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
-	notifs, err := h.q.GetUserNotifications(r.Context(), userID)
+	// A user may only read their own notifications; the query param is
+	// accepted for convenience but must match the session user.
+	if qUser := r.URL.Query().Get("userId"); qUser != "" {
+		if id, err := strconv.ParseInt(qUser, 10, 32); err != nil || int32(id) != ctxUserID {
+			writeError(w, http.StatusForbidden, "forbidden: can only view own notifications")
+			return
+		}
+	}
+
+	notifs, err := h.q.GetUserNotifications(r.Context(), ctxUserID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -74,25 +75,22 @@ func (h *AppHandler) MarkNotificationRead(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	userID := int32(0)
-	if ctxUserID, ok := middleware.GetUserID(r.Context()); ok {
-		userID = ctxUserID
-	} else if qUser := r.URL.Query().Get("userId"); qUser != "" {
-		if id, err := parseID(r, "userId"); err == nil {
-			userID = id
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if qUser := r.URL.Query().Get("userId"); qUser != "" {
+		if id, err := strconv.ParseInt(qUser, 10, 32); err != nil || int32(id) != userID {
+			writeError(w, http.StatusForbidden, "forbidden: can only modify own notifications")
+			return
 		}
 	}
 
-	if userID == 0 {
-		// if not specified, query directly to update by notifID
-		_, err = h.db.ExecContext(r.Context(), "UPDATE Notification SET IsRead = TRUE WHERE NotificationID = ?", notifID)
-	} else {
-		err = h.q.MarkNotificationAsRead(r.Context(), db.MarkNotificationAsReadParams{
-			Notificationid: notifID,
-			Userid:         userID,
-		})
-	}
-
+	err = h.q.MarkNotificationAsRead(r.Context(), db.MarkNotificationAsReadParams{
+		Notificationid: notifID,
+		Userid:         userID,
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -102,18 +100,16 @@ func (h *AppHandler) MarkNotificationRead(w http.ResponseWriter, r *http.Request
 }
 
 func (h *AppHandler) MarkAllNotificationsRead(w http.ResponseWriter, r *http.Request) {
-	userID := int32(0)
-	if ctxUserID, ok := middleware.GetUserID(r.Context()); ok {
-		userID = ctxUserID
-	} else if qUser := r.URL.Query().Get("userId"); qUser != "" {
-		if id, err := strconv.ParseInt(qUser, 10, 32); err == nil {
-			userID = int32(id)
-		}
-	}
-
-	if userID == 0 {
-		writeError(w, http.StatusBadRequest, "userId required")
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
+	}
+	if qUser := r.URL.Query().Get("userId"); qUser != "" {
+		if id, err := strconv.ParseInt(qUser, 10, 32); err != nil || int32(id) != userID {
+			writeError(w, http.StatusForbidden, "forbidden: can only modify own notifications")
+			return
+		}
 	}
 
 	err := h.q.MarkAllNotificationsAsRead(r.Context(), userID)

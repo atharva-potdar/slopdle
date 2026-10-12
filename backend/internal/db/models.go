@@ -34,6 +34,11 @@ type Assignment struct {
 	Rubricid       sql.NullInt32  `json:"rubricid"`
 }
 
+type Assignmentbatch struct {
+	Assignmentid int32 `json:"assignmentid"`
+	Batchid      int32 `json:"batchid"`
+}
+
 type Attendance struct {
 	Sessionid int32  `json:"sessionid"`
 	Userid    int32  `json:"userid"`
@@ -106,6 +111,11 @@ type Resource struct {
 	Fileurl    string       `json:"fileurl"`
 	Uploadedat sql.NullTime `json:"uploadedat"`
 	Categoryid int32        `json:"categoryid"`
+}
+
+type Resourcebatch struct {
+	Resourceid int32 `json:"resourceid"`
+	Batchid    int32 `json:"batchid"`
 }
 
 type Resourcecategory struct {

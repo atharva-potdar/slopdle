@@ -37,6 +37,20 @@ func (h *AppHandler) SubmitAssignment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	visible, err := h.q.CountAssignmentVisibleToStudent(r.Context(), db.CountAssignmentVisibleToStudentParams{
+		Assignmentid: assignmentID,
+		Courseid:     assignment.Courseid,
+		Userid:       h.callerID(r),
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if visible == 0 {
+		writeError(w, http.StatusForbidden, "assignment is not assigned to your batch")
+		return
+	}
+
 	var req SubmitRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.ContentData) == "" {
 		writeError(w, http.StatusBadRequest, "contentData is required")
@@ -184,6 +198,7 @@ func (h *AppHandler) GetSubmissionReport(w http.ResponseWriter, r *http.Request)
 		StudentName    string  `json:"studentName"`
 		SubmissionID   int32   `json:"submissionId"`
 		SubmissionTime *string `json:"submissionTime"`
+		Content        string  `json:"content"`
 		Deadline       string  `json:"deadline"`
 		Timeliness     string  `json:"timeliness"`
 		Score          *string `json:"score"`
@@ -216,6 +231,7 @@ func (h *AppHandler) GetSubmissionReport(w http.ResponseWriter, r *http.Request)
 			StudentName:    row.Studentname,
 			SubmissionID:   row.Submissionid,
 			SubmissionTime: subTime,
+			Content:        row.Contentdata,
 			Deadline:       row.Deadline.Format("2006-01-02 15:04:05"),
 			Timeliness:     row.Timeliness,
 			Score:          score,
@@ -251,4 +267,52 @@ func (h *AppHandler) GetStudentGrades(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, grades)
+}
+
+// ListStudentSubmissionsByCourse returns all of a student's submissions in a
+// course so the UI can indicate what has already been submitted.
+func (h *AppHandler) GetStudentSubmissions(w http.ResponseWriter, r *http.Request) {
+	courseID, err := parseID(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid course id")
+		return
+	}
+	studentID, err := parseID(r, "studentId")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid student id")
+		return
+	}
+	if !h.requireSelfOrCourseStaff(w, r, studentID, courseID) {
+		return
+	}
+
+	subs, err := h.q.ListStudentSubmissionsByCourse(r.Context(), db.ListStudentSubmissionsByCourseParams{
+		Userid:   studentID,
+		Courseid: courseID,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, subs)
+}
+
+// GetUserSubmissions returns all of a user's submissions across courses
+// so the dashboard can show completed work alongside pending work.
+func (h *AppHandler) GetUserSubmissions(w http.ResponseWriter, r *http.Request) {
+	userID, err := parseID(r, "userId")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+	if h.callerID(r) != userID && !h.requireAnyStaff(w, r) {
+		return
+	}
+
+	subs, err := h.q.ListStudentSubmissionsByUser(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, subs)
 }

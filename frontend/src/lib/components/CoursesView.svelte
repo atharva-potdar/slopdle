@@ -26,6 +26,7 @@
   let newTitle = '';
   let newFileUrl = '';
   let newCatId = 1;
+  let newResBatchIds: number[] = [];
 
   // New Course Form
   let showCourseModal = false;
@@ -116,9 +117,10 @@
   async function handleAddResource() {
     if (!newTitle || !newFileUrl) return;
     try {
-      await api.createResource(newCatId, newTitle, newFileUrl);
+      await api.createResource(newCatId, newTitle, newFileUrl, newResBatchIds);
       newTitle = '';
       newFileUrl = '';
+      newResBatchIds = [];
       showUploadModal = false;
       resources = await api.getResources(localCourseId);
     } catch (err: any) {
@@ -226,6 +228,14 @@
     }
   }
 
+  function parseBatchNames(s: string | null | undefined): string[] {
+    if (!s) return [];
+    return s
+      .split(',')
+      .map((x) => x.trim())
+      .filter((x) => x.length > 0);
+  }
+
   async function handleDeleteResource(resourceId: number) {
     if (!confirm('Delete this resource?')) return;
     try {
@@ -236,7 +246,6 @@
     }
   }
 </script>
-
 <svelte:window on:keydown={handleKeydown} />
 
 <div class="space-y-6">
@@ -383,15 +392,20 @@
       <div class="rounded-lg border border-zinc-800 bg-zinc-900/20 overflow-hidden divide-y divide-zinc-800/40">
         {#each (selectedCategoryId ? resources.filter(r => r.categoryid === selectedCategoryId) : resources) as res}
           <div class="p-4 flex items-center justify-between hover:bg-zinc-900/40 transition-colors">
-            <div>
-              <div class="flex items-center space-x-2">
-                <span class="font-mono text-[10px] text-zinc-500 uppercase px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
-                  {res.categoryname || 'Document'}
-                </span>
-                <span class="text-xs font-medium text-zinc-100">{res.title}</span>
+              <div>
+                <div class="flex items-center space-x-2">
+                  <span class="font-mono text-[10px] text-zinc-500 uppercase px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
+                    {res.categoryname || 'Document'}
+                  </span>
+                  <span class="text-xs font-medium text-zinc-100">{res.title}</span>
+                </div>
+                <p class="text-[11px] text-zinc-500 font-mono mt-0.5 truncate max-w-md">{res.fileurl}</p>
+                {#if res.batchnames}
+                  <p class="text-[11px] text-zinc-400 mt-0.5">Batches: {res.batchnames}</p>
+                {:else}
+                  <p class="text-[11px] text-zinc-400 mt-0.5">Batches: All</p>
+                {/if}
               </div>
-              <p class="text-[11px] text-zinc-500 font-mono mt-0.5 truncate max-w-md">{res.fileurl}</p>
-            </div>
 
             <div class="flex items-center space-x-2">
               <a
@@ -686,6 +700,19 @@
             placeholder="https://..." 
             class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400" 
           />
+        </div>
+
+        <div>
+          <span class="block text-xs font-medium text-zinc-400 mb-1">Target Batches</span>
+          <div class="flex flex-wrap gap-2">
+            {#each batches as b}
+              <label class="inline-flex items-center gap-1 text-xs text-zinc-300">
+                <input type="checkbox" value={b.batchid} bind:group={newResBatchIds} />
+                {b.batchname}
+              </label>
+            {/each}
+          </div>
+          <p class="text-[11px] text-zinc-500 mt-1">Leave all unchecked to make it course-wide.</p>
         </div>
 
         <div class="flex justify-end space-x-2 pt-2 border-t border-zinc-800">

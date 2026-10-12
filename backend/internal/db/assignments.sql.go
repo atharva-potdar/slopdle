@@ -11,6 +11,50 @@ import (
 	"time"
 )
 
+const addAssignmentBatch = `-- name: AddAssignmentBatch :exec
+INSERT IGNORE INTO AssignmentBatch (AssignmentID, BatchID)
+VALUES (?, ?)
+`
+
+type AddAssignmentBatchParams struct {
+	Assignmentid int32 `json:"assignmentid"`
+	Batchid      int32 `json:"batchid"`
+}
+
+func (q *Queries) AddAssignmentBatch(ctx context.Context, arg AddAssignmentBatchParams) error {
+	_, err := q.db.ExecContext(ctx, addAssignmentBatch, arg.Assignmentid, arg.Batchid)
+	return err
+}
+
+const countAssignmentVisibleToStudent = `-- name: CountAssignmentVisibleToStudent :one
+SELECT COUNT(*)
+FROM Assignment a
+WHERE a.AssignmentID = ?
+  AND a.CourseID = ?
+  AND (
+      NOT EXISTS (SELECT 1 FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID)
+      OR EXISTS (
+          SELECT 1 FROM AssignmentBatch ab
+          JOIN Enrollment e ON e.BatchID = ab.BatchID
+          WHERE ab.AssignmentID = a.AssignmentID AND e.UserID = ? AND e.CourseID = a.CourseID
+      )
+  )
+`
+
+type CountAssignmentVisibleToStudentParams struct {
+	Assignmentid int32 `json:"assignmentid"`
+	Courseid     int32 `json:"courseid"`
+	Userid       int32 `json:"userid"`
+}
+
+// Returns 1 when the assignment is course-wide or targeted at the student's batch.
+func (q *Queries) CountAssignmentVisibleToStudent(ctx context.Context, arg CountAssignmentVisibleToStudentParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAssignmentVisibleToStudent, arg.Assignmentid, arg.Courseid, arg.Userid)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAssignment = `-- name: CreateAssignment :execresult
 INSERT INTO Assignment (Title, Description, Deadline, FormatRequired, CourseID, RubricID)
 VALUES (?, ?, ?, ?, ?, ?)
@@ -45,10 +89,24 @@ func (q *Queries) DeleteAssignment(ctx context.Context, assignmentid int32) erro
 	return err
 }
 
+const deleteAssignmentBatches = `-- name: DeleteAssignmentBatches :exec
+DELETE FROM AssignmentBatch WHERE AssignmentID = ?
+`
+
+func (q *Queries) DeleteAssignmentBatches(ctx context.Context, assignmentid int32) error {
+	_, err := q.db.ExecContext(ctx, deleteAssignmentBatches, assignmentid)
+	return err
+}
+
 const getAssignmentByID = `-- name: GetAssignmentByID :one
 SELECT a.AssignmentID, a.Title, a.Description, a.Deadline, a.FormatRequired, a.CourseID, a.RubricID,
        r.Title AS RubricTitle, r.Department AS RubricDepartment, r.Description AS RubricDescription,
-       c.CourseCode, c.Title AS CourseTitle
+       c.CourseCode, c.Title AS CourseTitle,
+       (SELECT GROUP_CONCAT(ab.BatchID ORDER BY ab.BatchID)
+          FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID) AS BatchIDs,
+       (SELECT GROUP_CONCAT(b.BatchName ORDER BY b.BatchName SEPARATOR ', ')
+          FROM AssignmentBatch ab JOIN Batch b ON b.BatchID = ab.BatchID
+          WHERE ab.AssignmentID = a.AssignmentID) AS BatchNames
 FROM Assignment a
 JOIN Course c ON a.CourseID = c.CourseID
 LEFT JOIN Rubric r ON a.RubricID = r.RubricID
@@ -68,6 +126,8 @@ type GetAssignmentByIDRow struct {
 	Rubricdescription sql.NullString `json:"rubricdescription"`
 	Coursecode        string         `json:"coursecode"`
 	Coursetitle       string         `json:"coursetitle"`
+	Batchids          sql.NullString `json:"batchids"`
+	Batchnames        sql.NullString `json:"batchnames"`
 }
 
 func (q *Queries) GetAssignmentByID(ctx context.Context, assignmentid int32) (GetAssignmentByIDRow, error) {
@@ -86,12 +146,15 @@ func (q *Queries) GetAssignmentByID(ctx context.Context, assignmentid int32) (Ge
 		&i.Rubricdescription,
 		&i.Coursecode,
 		&i.Coursetitle,
+		&i.Batchids,
+		&i.Batchnames,
 	)
 	return i, err
 }
 
 const getPendingAssignmentsForStudent = `-- name: GetPendingAssignmentsForStudent :many
 SELECT 
+    c.CourseID,
     c.CourseCode,
     c.Title AS CourseTitle,
     a.AssignmentID,
@@ -104,10 +167,15 @@ JOIN Enrollment e ON c.CourseID = e.CourseID
 LEFT JOIN Submission s ON a.AssignmentID = s.AssignmentID AND e.UserID = s.UserID
 WHERE e.UserID = ?
   AND s.SubmissionID IS NULL
+  AND (
+      NOT EXISTS (SELECT 1 FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID)
+      OR e.BatchID IN (SELECT ab.BatchID FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID)
+  )
 ORDER BY a.Deadline ASC
 `
 
 type GetPendingAssignmentsForStudentRow struct {
+	Courseid       int32          `json:"courseid"`
 	Coursecode     string         `json:"coursecode"`
 	Coursetitle    string         `json:"coursetitle"`
 	Assignmentid   int32          `json:"assignmentid"`
@@ -126,6 +194,7 @@ func (q *Queries) GetPendingAssignmentsForStudent(ctx context.Context, userid in
 	for rows.Next() {
 		var i GetPendingAssignmentsForStudentRow
 		if err := rows.Scan(
+			&i.Courseid,
 			&i.Coursecode,
 			&i.Coursetitle,
 			&i.Assignmentid,
@@ -164,6 +233,10 @@ LEFT JOIN Submission s ON a.AssignmentID = s.AssignmentID AND u.UserID = s.UserI
 WHERE a.AssignmentID = ?
   AND r.RoleName = 'Student'
   AND s.SubmissionID IS NULL
+  AND (
+      NOT EXISTS (SELECT 1 FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID)
+      OR e.BatchID IN (SELECT ab.BatchID FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID)
+  )
 ORDER BY u.LastName ASC
 `
 
@@ -227,6 +300,10 @@ LEFT JOIN Submission s ON a.AssignmentID = s.AssignmentID AND u.UserID = s.UserI
 WHERE c.CourseID = ?
   AND r.RoleName = 'Student'
   AND s.SubmissionID IS NULL
+  AND (
+      NOT EXISTS (SELECT 1 FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID)
+      OR e.BatchID IN (SELECT ab.BatchID FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID)
+  )
 ORDER BY a.Deadline ASC, u.LastName ASC
 `
 
@@ -271,9 +348,50 @@ func (q *Queries) GetPendingStudentsForCourse(ctx context.Context, courseid int3
 	return items, nil
 }
 
+const listAssignmentBatches = `-- name: ListAssignmentBatches :many
+SELECT b.BatchID, b.BatchName
+FROM AssignmentBatch ab
+JOIN Batch b ON b.BatchID = ab.BatchID
+WHERE ab.AssignmentID = ?
+ORDER BY b.BatchName ASC
+`
+
+type ListAssignmentBatchesRow struct {
+	Batchid   int32  `json:"batchid"`
+	Batchname string `json:"batchname"`
+}
+
+func (q *Queries) ListAssignmentBatches(ctx context.Context, assignmentid int32) ([]ListAssignmentBatchesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAssignmentBatches, assignmentid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAssignmentBatchesRow{}
+	for rows.Next() {
+		var i ListAssignmentBatchesRow
+		if err := rows.Scan(&i.Batchid, &i.Batchname); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAssignmentsByCourse = `-- name: ListAssignmentsByCourse :many
 SELECT a.AssignmentID, a.Title, a.Description, a.Deadline, a.FormatRequired, a.CourseID, a.RubricID,
-       r.Title AS RubricTitle, r.Department AS RubricDepartment
+       r.Title AS RubricTitle, r.Department AS RubricDepartment,
+       (SELECT GROUP_CONCAT(ab.BatchID ORDER BY ab.BatchID)
+          FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID) AS BatchIDs,
+       (SELECT GROUP_CONCAT(b.BatchName ORDER BY b.BatchName SEPARATOR ', ')
+          FROM AssignmentBatch ab JOIN Batch b ON b.BatchID = ab.BatchID
+          WHERE ab.AssignmentID = a.AssignmentID) AS BatchNames
 FROM Assignment a
 LEFT JOIN Rubric r ON a.RubricID = r.RubricID
 WHERE a.CourseID = ?
@@ -290,6 +408,8 @@ type ListAssignmentsByCourseRow struct {
 	Rubricid         sql.NullInt32  `json:"rubricid"`
 	Rubrictitle      sql.NullString `json:"rubrictitle"`
 	Rubricdepartment sql.NullString `json:"rubricdepartment"`
+	Batchids         sql.NullString `json:"batchids"`
+	Batchnames       sql.NullString `json:"batchnames"`
 }
 
 func (q *Queries) ListAssignmentsByCourse(ctx context.Context, courseid int32) ([]ListAssignmentsByCourseRow, error) {
@@ -311,6 +431,86 @@ func (q *Queries) ListAssignmentsByCourse(ctx context.Context, courseid int32) (
 			&i.Rubricid,
 			&i.Rubrictitle,
 			&i.Rubricdepartment,
+			&i.Batchids,
+			&i.Batchnames,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAssignmentsByCourseForStudent = `-- name: ListAssignmentsByCourseForStudent :many
+SELECT a.AssignmentID, a.Title, a.Description, a.Deadline, a.FormatRequired, a.CourseID, a.RubricID,
+       r.Title AS RubricTitle, r.Department AS RubricDepartment,
+       (SELECT GROUP_CONCAT(ab.BatchID ORDER BY ab.BatchID)
+          FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID) AS BatchIDs,
+       (SELECT GROUP_CONCAT(b.BatchName ORDER BY b.BatchName SEPARATOR ', ')
+          FROM AssignmentBatch ab JOIN Batch b ON b.BatchID = ab.BatchID
+          WHERE ab.AssignmentID = a.AssignmentID) AS BatchNames
+FROM Assignment a
+LEFT JOIN Rubric r ON a.RubricID = r.RubricID
+WHERE a.CourseID = ?
+  AND (
+      NOT EXISTS (SELECT 1 FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID)
+      OR EXISTS (
+          SELECT 1 FROM AssignmentBatch ab
+          JOIN Enrollment e ON e.BatchID = ab.BatchID
+          WHERE ab.AssignmentID = a.AssignmentID AND e.UserID = ? AND e.CourseID = a.CourseID
+      )
+  )
+ORDER BY a.Deadline ASC
+`
+
+type ListAssignmentsByCourseForStudentParams struct {
+	Courseid int32 `json:"courseid"`
+	Userid   int32 `json:"userid"`
+}
+
+type ListAssignmentsByCourseForStudentRow struct {
+	Assignmentid     int32          `json:"assignmentid"`
+	Title            string         `json:"title"`
+	Description      sql.NullString `json:"description"`
+	Deadline         time.Time      `json:"deadline"`
+	Formatrequired   sql.NullString `json:"formatrequired"`
+	Courseid         int32          `json:"courseid"`
+	Rubricid         sql.NullInt32  `json:"rubricid"`
+	Rubrictitle      sql.NullString `json:"rubrictitle"`
+	Rubricdepartment sql.NullString `json:"rubricdepartment"`
+	Batchids         sql.NullString `json:"batchids"`
+	Batchnames       sql.NullString `json:"batchnames"`
+}
+
+// Course-wide assignments (no batch rows) plus assignments targeted at the
+// student's own batch.
+func (q *Queries) ListAssignmentsByCourseForStudent(ctx context.Context, arg ListAssignmentsByCourseForStudentParams) ([]ListAssignmentsByCourseForStudentRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAssignmentsByCourseForStudent, arg.Courseid, arg.Userid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAssignmentsByCourseForStudentRow{}
+	for rows.Next() {
+		var i ListAssignmentsByCourseForStudentRow
+		if err := rows.Scan(
+			&i.Assignmentid,
+			&i.Title,
+			&i.Description,
+			&i.Deadline,
+			&i.Formatrequired,
+			&i.Courseid,
+			&i.Rubricid,
+			&i.Rubrictitle,
+			&i.Rubricdepartment,
+			&i.Batchids,
+			&i.Batchnames,
 		); err != nil {
 			return nil, err
 		}

@@ -49,6 +49,7 @@ SELECT
     CONCAT(Student.FirstName, ' ', Student.LastName) AS StudentName,
     s.SubmissionID,
     s.SubmissionTime,
+    s.ContentData,
     a.Deadline,
     CASE 
         WHEN s.SubmissionTime > a.Deadline THEN 'LATE'
@@ -62,7 +63,7 @@ JOIN User Student ON s.UserID = Student.UserID
 LEFT JOIN Evaluation e ON s.SubmissionID = e.SubmissionID
 LEFT JOIN User Grader ON e.UserID = Grader.UserID
 WHERE a.CourseID = ?
-ORDER BY e.Score DESC;
+ORDER BY (e.Score IS NULL) DESC, s.SubmissionTime DESC;
 
 -- name: GetStudentGradesInCourse :many
 -- Case Study Query 1: Assignment scores and feedback for student
@@ -77,4 +78,29 @@ JOIN Submission s ON u.UserID = s.UserID
 JOIN Assignment a ON s.AssignmentID = a.AssignmentID
 JOIN Evaluation e ON s.SubmissionID = e.SubmissionID
 WHERE u.UserID = ? AND a.CourseID = ?
+ORDER BY s.SubmissionTime DESC, s.SubmissionID DESC;
+
+-- name: ListStudentSubmissionsByCourse :many
+SELECT s.SubmissionID, s.SubmissionTime, s.ContentData, s.AssignmentID, s.UserID,
+       e.Score, e.Feedback
+FROM Submission s
+LEFT JOIN Evaluation e ON s.SubmissionID = e.SubmissionID
+WHERE s.UserID = ?
+  AND s.AssignmentID IN (SELECT AssignmentID FROM Assignment WHERE CourseID = ?)
+ORDER BY s.SubmissionTime DESC, s.SubmissionID DESC;
+
+-- name: ListStudentSubmissionsByUser :many
+SELECT c.CourseCode,
+       c.Title AS CourseTitle,
+       a.AssignmentID,
+       a.Title AS AssignmentName,
+       a.Deadline,
+       s.SubmissionID,
+       s.SubmissionTime,
+       e.Score
+FROM Submission s
+JOIN Assignment a ON s.AssignmentID = a.AssignmentID
+JOIN Course c ON a.CourseID = c.CourseID
+LEFT JOIN Evaluation e ON s.SubmissionID = e.SubmissionID
+WHERE s.UserID = ?
 ORDER BY s.SubmissionTime DESC, s.SubmissionID DESC;

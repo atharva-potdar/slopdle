@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ExternalLink } from 'lucide-svelte';
   import { 
     api, type Assignment, type SubmissionReportItem, 
     type StudentGradeItem, type PendingStudent, type User, type Rubric 
@@ -7,11 +8,15 @@
   export let currentUser: User;
   export let selectedCourseId: number;
   export let currentRole: string;
+  export let focus: { id: number; n: number } | null = null;
 
   let assignments: Assignment[] = [];
   let rubrics: Rubric[] = [];
   let selectedAssignmentId: number = 0;
   let activeTab: 'assignments' | 'report' | 'pending' | 'grades' | 'rubrics' = 'assignments';
+  let batches: any[] = [];
+  let mySubmissions: any[] = [];
+  let consumedFocusN = 0;
 
   // Submission form
   let showSubmitModal = false;
@@ -19,9 +24,21 @@
   let submitError = '';
   let submitSuccess = '';
 
+  // Deep-link from dashboard: preselect assignment and open its submit modal.
+  $: {
+    const f = focus;
+    if (f && f.n !== consumedFocusN && assignments.some((a) => a.assignmentid === f.id)) {
+      consumedFocusN = f.n;
+      selectedAssignmentId = f.id;
+      showSubmitModal = true;
+    }
+  }
+
   // Grading form
   let showGradeModal = false;
   let gradingSubmissionId: number = 0;
+  let gradingContext = '';
+  let gradingContent = '';
   let gradeScore: number = 90;
   let gradeFeedback: string = '';
 
@@ -33,6 +50,7 @@
   let newAssignDeadline = '';
   let newAssignFormat = 'PDF/ZIP';
   let newAssignRubricId = 0;
+  let newAssignBatchIds: number[] = [];
 
   // Rubric management form
   let showRubricModal = false;
@@ -62,6 +80,18 @@
   async function loadInitialData() {
     assignments = await api.getAssignments(selectedCourseId);
     rubrics = await api.getRubrics();
+    try {
+      batches = await api.getBatches(selectedCourseId);
+    } catch (e) {
+      batches = [];
+    }
+    if (!isTeacher) {
+      try {
+        mySubmissions = await api.getStudentSubmissions(selectedCourseId, currentUser.userId);
+      } catch (e) {
+        mySubmissions = [];
+      }
+    }
     if (assignments.length > 0) {
       selectedAssignmentId = assignments[0].assignmentid;
       await loadTabReports();
@@ -111,6 +141,13 @@
       await api.submitAssignment(selectedAssignmentId, submissionContent);
       submitSuccess = 'Submission recorded successfully.';
       submissionContent = '';
+      if (!isTeacher) {
+        try {
+          mySubmissions = await api.getStudentSubmissions(selectedCourseId, currentUser.userId);
+        } catch (e) {
+          mySubmissions = [];
+        }
+      }
       setTimeout(() => {
         showSubmitModal = false;
         loadTabReports();
@@ -130,9 +167,11 @@
     }
   }
 
-  function openGradeModal(subId: number, currentScore?: string) {
-    gradingSubmissionId = subId;
-    gradeScore = currentScore ? parseFloat(currentScore) : 90;
+  function openGradeModal(rep: SubmissionReportItem) {
+    gradingSubmissionId = rep.submissionId;
+    gradingContext = `${rep.studentName} — ${rep.assignmentName}`;
+    gradingContent = rep.content || '';
+    gradeScore = rep.score ? parseFloat(rep.score) : 90;
     gradeFeedback = 'Meets rubric specifications and criteria.';
     showGradeModal = true;
   }
@@ -145,6 +184,7 @@
       deadline: new Date(newAssignDeadline).toISOString(),
       formatRequired: newAssignFormat,
       rubricId: newAssignRubricId || null,
+      batchIds: newAssignBatchIds,
     };
     try {
       if (editingAssignmentId) {
@@ -155,6 +195,9 @@
       newAssignTitle = '';
       newAssignDesc = '';
       newAssignDeadline = '';
+      newAssignFormat = 'PDF/ZIP';
+      newAssignRubricId = 0;
+      newAssignBatchIds = [];
       editingAssignmentId = 0;
       showCreateModal = false;
       await loadInitialData();
@@ -170,6 +213,7 @@
     newAssignDeadline = '';
     newAssignFormat = 'PDF/ZIP';
     newAssignRubricId = 0;
+    newAssignBatchIds = [];
     showCreateModal = true;
   }
 
@@ -180,6 +224,7 @@
     newAssignDeadline = a.deadline ? new Date(a.deadline).toISOString().slice(0, 16) : '';
     newAssignFormat = a.formatrequired?.String || 'PDF/ZIP';
     newAssignRubricId = a.rubricid?.Valid ? a.rubricid.Int32 : 0;
+    newAssignBatchIds = parseBatchIds(a.batchids as any);
     showCreateModal = true;
   }
 
@@ -223,6 +268,32 @@
     } catch (err: any) {
       alert(err.message);
     }
+  }
+
+  function parseBatchIds(s: string | null | undefined): number[] {
+    if (!s) return [];
+    return s
+      .split(',')
+      .map((x) => parseInt(x.trim()))
+      .filter((x) => !isNaN(x));
+  }
+
+  function getBatchNames(s: string | null | undefined): string[] {
+    if (!s) return [];
+    return s
+      .split(',')
+      .map((x) => x.trim())
+      .filter((x) => x.length > 0);
+  }
+
+  function isSubmitted(aid: number): boolean {
+    return mySubmissions.some((s: any) => s.assignmentid === aid);
+  }
+
+  function isUrl(s: string | null | undefined): boolean {
+    if (!s) return false;
+    const t = s.trim().toLowerCase();
+    return t.startsWith('http://') || t.startsWith('https://');
   }
 </script>
 
@@ -312,8 +383,16 @@
             <h3 class="text-sm font-semibold text-zinc-100 mt-2">{a.title}</h3>
             <p class="text-xs text-zinc-400 mt-1">{a.description?.String || ''}</p>
 
-            <div class="mt-4 pt-3 border-t border-zinc-800/60 text-xs text-zinc-500 font-mono">
-              Due: {new Date(a.deadline).toISOString().replace('T', ' ').slice(0, 16)}
+            <div class="mt-4 pt-3 border-t border-zinc-800/60 text-xs text-zinc-500 font-mono space-y-1">
+              <div>Due: {new Date(a.deadline).toISOString().replace('T', ' ').slice(0, 16)}</div>
+              {#if a.batchnames}
+                <div class="text-zinc-400">Batches: {a.batchnames}</div>
+              {:else}
+                <div class="text-zinc-400">Batches: All</div>
+              {/if}
+              {#if !isTeacher}
+                <div class="text-zinc-200">Status: {isSubmitted(a.assignmentid) ? 'Submitted' : 'Not submitted'}</div>
+              {/if}
             </div>
           </div>
 
@@ -365,24 +444,40 @@
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs">
           <thead class="border-b border-zinc-800 text-zinc-400 font-medium bg-zinc-950/40">
-            <tr>
-              <th class="h-9 px-4 align-middle font-medium">Assignment</th>
-              <th class="h-9 px-4 align-middle font-medium">Student</th>
-              <th class="h-9 px-4 align-middle font-medium">Submitted</th>
-              <th class="h-9 px-4 align-middle font-medium">Deadline</th>
-              <th class="h-9 px-4 align-middle font-medium">Timeliness</th>
-              <th class="h-9 px-4 align-middle font-medium">Score</th>
-              <th class="h-9 px-4 align-middle font-medium">Graded By</th>
-              {#if isTeacher}
-                <th class="h-9 px-4 align-middle font-medium text-right">Action</th>
-              {/if}
-            </tr>
+              <tr>
+                <th class="h-9 px-4 align-middle font-medium">Assignment</th>
+                <th class="h-9 px-4 align-middle font-medium">Student</th>
+                <th class="h-9 px-4 align-middle font-medium">Submission</th>
+                <th class="h-9 px-4 align-middle font-medium">Submitted</th>
+                <th class="h-9 px-4 align-middle font-medium">Deadline</th>
+                <th class="h-9 px-4 align-middle font-medium">Timeliness</th>
+                <th class="h-9 px-4 align-middle font-medium">Score</th>
+                <th class="h-9 px-4 align-middle font-medium">Graded By</th>
+                {#if isTeacher}
+                  <th class="h-9 px-4 align-middle font-medium text-right">Action</th>
+                {/if}
+              </tr>
           </thead>
           <tbody class="divide-y divide-zinc-800/40 text-zinc-300">
             {#each submissionReport as rep}
               <tr class="hover:bg-zinc-900/40 transition-colors">
                 <td class="p-4 font-medium text-zinc-100">{rep.assignmentName}</td>
                 <td class="p-4 text-zinc-300">{rep.studentName}</td>
+                <td class="p-4 max-w-[12rem]">
+                  {#if isUrl(rep.content)}
+                    <a
+                      href={rep.content}
+                      target="_blank"
+                      rel="noreferrer"
+                      class="inline-flex items-center gap-1 font-mono text-[11px] text-zinc-300 hover:text-white underline underline-offset-2 truncate"
+                    >
+                      <ExternalLink class="w-3 h-3 shrink-0" />
+                      <span class="truncate">{rep.content}</span>
+                    </a>
+                  {:else}
+                    <span class="font-mono text-[11px] text-zinc-400 truncate block" title={rep.content}>{rep.content || '—'}</span>
+                  {/if}
+                </td>
                 <td class="p-4 font-mono text-zinc-400">{rep.submissionTime || 'N/A'}</td>
                 <td class="p-4 font-mono text-zinc-400">{rep.deadline}</td>
                 <td class="p-4">
@@ -395,7 +490,7 @@
                 {#if isTeacher}
                   <td class="p-4 text-right">
                     <button
-                      on:click={() => openGradeModal(rep.submissionId, rep.score)}
+                      on:click={() => openGradeModal(rep)}
                       class="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 hover:text-white hover:bg-zinc-800"
                     >
                       Grade
@@ -582,7 +677,31 @@
   {#if showGradeModal}
     <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
       <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
-        <h3 class="text-sm font-semibold text-zinc-100">Evaluate Submission</h3>
+        <div>
+          <h3 class="text-sm font-semibold text-zinc-100">Evaluate Submission</h3>
+          {#if gradingContext}
+            <p class="text-xs text-zinc-500 mt-0.5">{gradingContext}</p>
+          {/if}
+        </div>
+
+        {#if gradingContent}
+          <div class="rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
+            <div class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-1.5">Submitted work</div>
+            {#if isUrl(gradingContent)}
+              <a
+                href={gradingContent}
+                target="_blank"
+                rel="noreferrer"
+                class="inline-flex items-center gap-1.5 text-xs text-zinc-100 hover:text-white underline underline-offset-2 break-all"
+              >
+                <ExternalLink class="w-3.5 h-3.5 shrink-0" />
+                <span class="break-all">{gradingContent}</span>
+              </a>
+            {:else}
+              <pre class="max-h-32 overflow-y-auto whitespace-pre-wrap break-words font-mono text-[11px] text-zinc-300">{gradingContent}</pre>
+            {/if}
+          </div>
+        {/if}
 
         <div>
           <label for="grade-score-input" class="block text-xs font-medium text-zinc-400 mb-1">Score (0 - 100)</label>
@@ -649,16 +768,29 @@
           </div>
         </div>
 
-        <div>
-          <label for="assign-rubric" class="block text-xs font-medium text-zinc-400 mb-1">Rubric</label>
-          <select id="assign-rubric" bind:value={newAssignRubricId}
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400">
-            <option value={0}>None</option>
-            {#each rubrics as r}
-              <option value={r.rubricid}>{r.title}</option>
-            {/each}
-          </select>
-        </div>
+          <div>
+            <label for="assign-rubric" class="block text-xs font-medium text-zinc-400 mb-1">Rubric</label>
+            <select id="assign-rubric" bind:value={newAssignRubricId}
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400">
+              <option value={0}>None</option>
+              {#each rubrics as r}
+                <option value={r.rubricid}>{r.title}</option>
+              {/each}
+            </select>
+          </div>
+
+          <div>
+            <span class="block text-xs font-medium text-zinc-400 mb-1">Target Batches</span>
+            <div class="flex flex-wrap gap-2">
+              {#each batches as b}
+                <label class="inline-flex items-center gap-1 text-xs text-zinc-300">
+                  <input type="checkbox" value={b.batchid} bind:group={newAssignBatchIds} />
+                  {b.batchname}
+                </label>
+              {/each}
+            </div>
+            <p class="text-[11px] text-zinc-500 mt-1">Leave all unchecked to make it course-wide.</p>
+          </div>
 
         <div class="flex justify-end space-x-2 pt-2 border-t border-zinc-800">
           <button on:click={() => showCreateModal = false} class="px-3 py-1.5 text-xs rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100">Cancel</button>

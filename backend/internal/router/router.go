@@ -92,6 +92,8 @@ func NewRouter(q *db.Queries, sqlDB *sql.DB) http.Handler {
 			api.Post("/submissions/{id}/evaluate", h.EvaluateSubmission)
 			api.Get("/courses/{id}/submissions/report", h.GetSubmissionReport)       // Case Study Query 3
 			api.Get("/courses/{id}/students/{studentId}/grades", h.GetStudentGrades) // Case Study Query 1
+			api.Get("/courses/{id}/students/{studentId}/submissions", h.GetStudentSubmissions)
+			api.Get("/students/{userId}/submissions", h.GetUserSubmissions)
 
 			// Q&A System
 			api.Get("/courses/{id}/questions", h.ListQuestions)

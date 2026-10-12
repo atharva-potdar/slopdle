@@ -16,6 +16,7 @@
   let enrollments: any[] = [];
   let selectedCourseId: number | null = null;
   let currentRole: string = '';
+  let assignFocus: { id: number; n: number } | null = null;
 
   // Login form state (prefilled with a seeded demo account)
   let loginEmail = 'alice.teacher@university.edu';
@@ -83,6 +84,7 @@
     selectedCourseId = null;
     currentRole = '';
     activeTab = 'dashboard';
+    assignFocus = null;
   }
 
   async function refreshNotifications() {
@@ -113,8 +115,14 @@
     }
   }
 
-  function handleTabChange(tab: string) {
+  function handleTabChange(tab: string, courseId?: number, assignmentId?: number) {
     activeTab = tab;
+    if (courseId && courseId !== selectedCourseId) {
+      selectedCourseId = courseId;
+      const enr = enrollments.find((e) => e.courseid === courseId);
+      if (enr) currentRole = enr.rolename;
+    }
+    assignFocus = assignmentId ? { id: assignmentId, n: Date.now() } : null;
   }
 
   function openProfile() {
@@ -250,6 +258,7 @@
     {notifications}
     onMarkRead={handleMarkNotificationRead}
     onMarkAllRead={handleMarkAllNotificationsRead}
+    onRefresh={refreshNotifications}
   />
 
   <!-- Main Workspace -->
@@ -260,7 +269,7 @@
       {:else if activeTab === 'courses'}
         <CoursesView {selectedCourseId} {currentRole} />
       {:else if activeTab === 'assignments'}
-        <AssignmentsView {currentUser} {selectedCourseId} {currentRole} />
+        <AssignmentsView {currentUser} {selectedCourseId} {currentRole} focus={assignFocus} />
       {:else if activeTab === 'attendance'}
         <AttendanceView {currentUser} {selectedCourseId} {currentRole} />
       {:else if activeTab === 'qa'}

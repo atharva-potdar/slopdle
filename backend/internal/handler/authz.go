@@ -38,9 +38,14 @@ func (h *AppHandler) roleInCourse(ctx context.Context, userID, courseID int32) s
 	return enr.Rolename
 }
 
+// isStaffInCourse reports Teacher/TA membership without writing a response.
+func (h *AppHandler) isStaffInCourse(ctx context.Context, userID, courseID int32) bool {
+	return isStaffRole(h.roleInCourse(ctx, userID, courseID))
+}
+
 // requireCourseStaff allows Teacher/TA in the given course, else writes 403.
 func (h *AppHandler) requireCourseStaff(w http.ResponseWriter, r *http.Request, courseID int32) bool {
-	if isStaffRole(h.roleInCourse(r.Context(), h.callerID(r), courseID)) {
+	if h.isStaffInCourse(r.Context(), h.callerID(r), courseID) {
 		return true
 	}
 	writeError(w, http.StatusForbidden, "forbidden: staff role required for this course")

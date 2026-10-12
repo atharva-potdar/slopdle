@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -15,6 +16,30 @@ type CreateAssignmentRequest struct {
 	Deadline       time.Time `json:"deadline"`
 	FormatRequired string    `json:"formatRequired"`
 	RubricID       *int32    `json:"rubricId"`
+	BatchIDs       []int32   `json:"batchIds"`
+}
+
+// setAssignmentBatches replaces an assignment's batch scope atomically.
+// An empty slice means "course-wide" (no restriction).
+func (h *AppHandler) setAssignmentBatches(ctx context.Context, assignmentID int32, batchIDs []int32) error {
+	tx, err := h.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	qtx := h.q.WithTx(tx)
+	if err := qtx.DeleteAssignmentBatches(ctx, assignmentID); err != nil {
+		return err
+	}
+	for _, bid := range batchIDs {
+		if err := qtx.AddAssignmentBatch(ctx, db.AddAssignmentBatchParams{
+			Assignmentid: assignmentID,
+			Batchid:      bid,
+		}); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (h *AppHandler) ListCourseAssignments(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +52,20 @@ func (h *AppHandler) ListCourseAssignments(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	assignments, err := h.q.ListAssignmentsByCourse(r.Context(), courseID)
+	if h.isStaffInCourse(r.Context(), h.callerID(r), courseID) {
+		assignments, err := h.q.ListAssignmentsByCourse(r.Context(), courseID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, assignments)
+		return
+	}
+
+	assignments, err := h.q.ListAssignmentsByCourseForStudent(r.Context(), db.ListAssignmentsByCourseForStudentParams{
+		Courseid: courseID,
+		Userid:   h.callerID(r),
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -88,6 +126,10 @@ func (h *AppHandler) CreateAssignment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newID, _ := res.LastInsertId()
+	if err := h.setAssignmentBatches(r.Context(), int32(newID), req.BatchIDs); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"message":      "assignment created",
 		"assignmentId": newID,
@@ -130,6 +172,11 @@ func (h *AppHandler) UpdateAssignment(w http.ResponseWriter, r *http.Request) {
 		Assignmentid:   id,
 	})
 	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if err := h.setAssignmentBatches(r.Context(), id, req.BatchIDs); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

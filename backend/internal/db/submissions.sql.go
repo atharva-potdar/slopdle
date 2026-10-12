@@ -165,6 +165,7 @@ SELECT
     CONCAT(Student.FirstName, ' ', Student.LastName) AS StudentName,
     s.SubmissionID,
     s.SubmissionTime,
+    s.ContentData,
     a.Deadline,
     CASE 
         WHEN s.SubmissionTime > a.Deadline THEN 'LATE'
@@ -178,7 +179,7 @@ JOIN User Student ON s.UserID = Student.UserID
 LEFT JOIN Evaluation e ON s.SubmissionID = e.SubmissionID
 LEFT JOIN User Grader ON e.UserID = Grader.UserID
 WHERE a.CourseID = ?
-ORDER BY e.Score DESC
+ORDER BY (e.Score IS NULL) DESC, s.SubmissionTime DESC
 `
 
 type GetSubmissionReportRow struct {
@@ -187,6 +188,7 @@ type GetSubmissionReportRow struct {
 	Studentname    string         `json:"studentname"`
 	Submissionid   int32          `json:"submissionid"`
 	Submissiontime sql.NullTime   `json:"submissiontime"`
+	Contentdata    string         `json:"contentdata"`
 	Deadline       time.Time      `json:"deadline"`
 	Timeliness     string         `json:"timeliness"`
 	Score          sql.NullString `json:"score"`
@@ -209,6 +211,7 @@ func (q *Queries) GetSubmissionReport(ctx context.Context, courseid int32) ([]Ge
 			&i.Studentname,
 			&i.Submissionid,
 			&i.Submissiontime,
+			&i.Contentdata,
 			&i.Deadline,
 			&i.Timeliness,
 			&i.Score,
@@ -266,6 +269,122 @@ func (q *Queries) GetUserSubmissionForAssignment(ctx context.Context, arg GetUse
 		&i.Gradedbyuserid,
 	)
 	return i, err
+}
+
+const listStudentSubmissionsByCourse = `-- name: ListStudentSubmissionsByCourse :many
+SELECT s.SubmissionID, s.SubmissionTime, s.ContentData, s.AssignmentID, s.UserID,
+       e.Score, e.Feedback
+FROM Submission s
+LEFT JOIN Evaluation e ON s.SubmissionID = e.SubmissionID
+WHERE s.UserID = ?
+  AND s.AssignmentID IN (SELECT AssignmentID FROM Assignment WHERE CourseID = ?)
+ORDER BY s.SubmissionTime DESC, s.SubmissionID DESC
+`
+
+type ListStudentSubmissionsByCourseParams struct {
+	Userid   int32 `json:"userid"`
+	Courseid int32 `json:"courseid"`
+}
+
+type ListStudentSubmissionsByCourseRow struct {
+	Submissionid   int32          `json:"submissionid"`
+	Submissiontime sql.NullTime   `json:"submissiontime"`
+	Contentdata    string         `json:"contentdata"`
+	Assignmentid   int32          `json:"assignmentid"`
+	Userid         int32          `json:"userid"`
+	Score          sql.NullString `json:"score"`
+	Feedback       sql.NullString `json:"feedback"`
+}
+
+func (q *Queries) ListStudentSubmissionsByCourse(ctx context.Context, arg ListStudentSubmissionsByCourseParams) ([]ListStudentSubmissionsByCourseRow, error) {
+	rows, err := q.db.QueryContext(ctx, listStudentSubmissionsByCourse, arg.Userid, arg.Courseid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStudentSubmissionsByCourseRow{}
+	for rows.Next() {
+		var i ListStudentSubmissionsByCourseRow
+		if err := rows.Scan(
+			&i.Submissionid,
+			&i.Submissiontime,
+			&i.Contentdata,
+			&i.Assignmentid,
+			&i.Userid,
+			&i.Score,
+			&i.Feedback,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudentSubmissionsByUser = `-- name: ListStudentSubmissionsByUser :many
+SELECT c.CourseCode,
+       c.Title AS CourseTitle,
+       a.AssignmentID,
+       a.Title AS AssignmentName,
+       a.Deadline,
+       s.SubmissionID,
+       s.SubmissionTime,
+       e.Score
+FROM Submission s
+JOIN Assignment a ON s.AssignmentID = a.AssignmentID
+JOIN Course c ON a.CourseID = c.CourseID
+LEFT JOIN Evaluation e ON s.SubmissionID = e.SubmissionID
+WHERE s.UserID = ?
+ORDER BY s.SubmissionTime DESC, s.SubmissionID DESC
+`
+
+type ListStudentSubmissionsByUserRow struct {
+	Coursecode     string         `json:"coursecode"`
+	Coursetitle    string         `json:"coursetitle"`
+	Assignmentid   int32          `json:"assignmentid"`
+	Assignmentname string         `json:"assignmentname"`
+	Deadline       time.Time      `json:"deadline"`
+	Submissionid   int32          `json:"submissionid"`
+	Submissiontime sql.NullTime   `json:"submissiontime"`
+	Score          sql.NullString `json:"score"`
+}
+
+func (q *Queries) ListStudentSubmissionsByUser(ctx context.Context, userid int32) ([]ListStudentSubmissionsByUserRow, error) {
+	rows, err := q.db.QueryContext(ctx, listStudentSubmissionsByUser, userid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStudentSubmissionsByUserRow{}
+	for rows.Next() {
+		var i ListStudentSubmissionsByUserRow
+		if err := rows.Scan(
+			&i.Coursecode,
+			&i.Coursetitle,
+			&i.Assignmentid,
+			&i.Assignmentname,
+			&i.Deadline,
+			&i.Submissionid,
+			&i.Submissiontime,
+			&i.Score,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listSubmissionsByAssignment = `-- name: ListSubmissionsByAssignment :many

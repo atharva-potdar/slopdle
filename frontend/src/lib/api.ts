@@ -45,6 +45,8 @@ export interface Assignment {
   courseid: number;
   rubricid?: { Int32: number; Valid: boolean };
   rubrictitle?: { String: string; Valid: boolean };
+  batchids?: string | null;
+  batchnames?: string | null;
 }
 
 export interface SubmissionReportItem {
@@ -53,6 +55,7 @@ export interface SubmissionReportItem {
   studentName: string;
   submissionId: number;
   submissionTime?: string;
+  content: string;
   deadline: string;
   timeliness: 'ON TIME' | 'LATE';
   score?: string;
@@ -118,6 +121,29 @@ export interface Resource {
   uploadedat?: { Time: string; Valid: boolean };
   categoryid: number;
   categoryname?: string;
+  batchids?: string | null;
+  batchnames?: string | null;
+}
+
+export interface StudentSubmission {
+  submissionid: number;
+  submissiontime?: { Time: string; Valid: boolean };
+  contentdata: string;
+  assignmentid: number;
+  userid: number;
+  score?: { String: string; Valid: boolean };
+  feedback?: { String: string; Valid: boolean };
+}
+
+export interface UserSubmission {
+  coursecode: string;
+  coursetitle: string;
+  assignmentid: number;
+  assignmentname: string;
+  deadline: string;
+  submissionid: number;
+  submissiontime?: { Time: string; Valid: boolean };
+  score?: { String: string; Valid: boolean };
 }
 
 export interface AttendanceSummary {
@@ -219,10 +245,10 @@ export const api = {
       body: JSON.stringify({ categoryName }),
     }),
   getResources: (courseId: number) => request<Resource[]>(`/courses/${courseId}/resources`),
-  createResource: (categoryId: number, title: string, fileUrl: string) =>
+  createResource: (categoryId: number, title: string, fileUrl: string, batchIds: number[] = []) =>
     request(`/categories/${categoryId}/resources`, {
       method: 'POST',
-      body: JSON.stringify({ title, fileUrl }),
+      body: JSON.stringify({ title, fileUrl, batchIds }),
     }),
   deleteResource: (resourceId: number) => request(`/resources/${resourceId}`, { method: 'DELETE' }),
 
@@ -260,6 +286,10 @@ export const api = {
     request<SubmissionReportItem[]>(`/courses/${courseId}/submissions/report`),
   getStudentGrades: (courseId: number, studentId: number) =>
     request<StudentGradeItem[]>(`/courses/${courseId}/students/${studentId}/grades`),
+  getStudentSubmissions: (courseId: number, studentId: number) =>
+    request<StudentSubmission[]>(`/courses/${courseId}/students/${studentId}/submissions`),
+  getUserSubmissions: (userId: number) =>
+    request<UserSubmission[]>(`/students/${userId}/submissions`),
 
   // Q&A
   getQuestions: (courseId: number) => request<Question[]>(`/courses/${courseId}/questions`),

@@ -1,16 +1,17 @@
 <script lang="ts">
   import { ArrowUpRight } from 'lucide-svelte';
-  import { api, type User, type AttendanceSummary, type StudentGradeItem, type PendingStudent } from '../api';
+  import { api, type User, type AttendanceSummary, type StudentGradeItem, type PendingStudent, type UserSubmission } from '../api';
 
   export let currentUser: User;
   export let selectedCourseId: number;
   export let currentRole: string;
   export let enrollments: any[] = [];
-  export let onNavigate: (tab: string) => void;
+  export let onNavigate: (tab: string, courseId?: number, assignmentId?: number) => void;
 
   let attendance: AttendanceSummary | null = null;
   let grades: StudentGradeItem[] = [];
   let pendingAssignments: any[] = [];
+  let myCompleted: UserSubmission[] = [];
   let pendingStudents: PendingStudent[] = [];
   let pendingGradingCount = 0;
   let enrolledStudents: any[] = [];
@@ -37,6 +38,7 @@
         attendance = await api.getStudentAttendance(selectedCourseId, currentUser.userId).catch(() => null);
         grades = await api.getStudentGrades(selectedCourseId, currentUser.userId).catch(() => []);
         pendingAssignments = await api.getPendingAssignmentsForStudent(currentUser.userId).catch(() => []);
+        myCompleted = await api.getUserSubmissions(currentUser.userId).catch(() => []);
       } else if (isTeacherOrTA) {
         pendingStudents = await api.getPendingStudentsForCourse(selectedCourseId).catch(() => []);
         const report = await api.getSubmissionReport(selectedCourseId).catch(() => []);
@@ -65,10 +67,49 @@
       alert(err.message);
     }
   }
+
+  function isOverdue(deadline: string | null | undefined): boolean {
+    if (!deadline) return false;
+    return new Date(deadline).getTime() < Date.now();
+  }
+
+  function fmtDate(d: string | null | undefined): string {
+    if (!d) return 'N/A';
+    return new Date(d).toISOString().split('T')[0];
+  }
+
+  // Active work first (deadline order from API), completed greyed at the end.
+  $: dashboardRows = [
+    ...pendingAssignments.map((p: any) => ({
+      coursecode: p.coursecode,
+      courseid: p.courseid,
+      assignmentid: p.assignmentid,
+      assignmentname: p.assignmentname,
+      format: p.formatrequired?.String || 'ANY',
+      deadline: p.deadline,
+      done: false,
+      late: isOverdue(p.deadline),
+      score: null as string | null,
+      submittedOn: null as string | null,
+    })),
+    ...myCompleted.map((s) => ({
+      coursecode: s.coursecode,
+      courseid: null as number | null,
+      assignmentid: s.assignmentid,
+      assignmentname: s.assignmentname,
+      format: '—',
+      deadline: s.deadline,
+      done: true,
+      late: !!s.submissiontime?.Time && !!s.deadline &&
+        new Date(s.submissiontime.Time).getTime() > new Date(s.deadline).getTime(),
+      score: s.score?.String || null,
+      submittedOn: s.submissiontime?.Time ? fmtDate(s.submissiontime.Time) : null,
+    })),
+  ];
 </script>
 
 <div class="space-y-8">
-  
+
   <!-- Page Header -->
   <div class="flex items-center justify-between border-b border-zinc-800 pb-5">
     <div>
@@ -84,7 +125,7 @@
   {#if isStudent}
     <!-- STUDENT METRICS -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      
+
       <!-- Attendance Card -->
       <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
         <div class="text-xs font-medium text-zinc-400">Attendance </div>
@@ -127,7 +168,7 @@
           <h2 class="text-sm font-semibold text-zinc-100">Course Assignments</h2>
           <p class="text-xs text-zinc-500">Submissions requiring technical format verification</p>
         </div>
-        <button 
+        <button
           on:click={() => onNavigate('assignments')}
           class="text-xs text-zinc-400 hover:text-zinc-100 inline-flex items-center space-x-1"
         >
@@ -148,23 +189,43 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-zinc-800/40 text-zinc-300">
-            {#each pendingAssignments as item}
-              <tr class="hover:bg-zinc-900/40 transition-colors">
+            {#each dashboardRows as item}
+              <tr class="transition-colors {item.done ? 'opacity-50 hover:bg-zinc-900/20' : item.late ? 'bg-red-950/20 hover:bg-red-950/30' : 'hover:bg-zinc-900/40'}">
                 <td class="p-4 font-mono font-medium text-zinc-200">{item.coursecode}</td>
-                <td class="p-4 text-zinc-100 font-medium">{item.assignmentname}</td>
-                <td class="p-4 font-mono text-zinc-400">{item.formatrequired?.String || 'ANY'}</td>
-                <td class="p-4 font-mono text-zinc-400">{item.deadline ? new Date(item.deadline).toISOString().split('T')[0] : 'N/A'}</td>
+                <td class="p-4 text-zinc-100 font-medium">
+                  {item.assignmentname}
+                  {#if item.done}
+                    <span class="ml-2 inline-flex items-center rounded border border-zinc-700 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300">
+                      SUBMITTED{item.submittedOn ? ` ${item.submittedOn}` : ''}
+                    </span>
+                  {:else if item.late}
+                    <span class="ml-2 inline-flex items-center rounded border border-red-900/60 bg-red-950/30 px-1.5 py-0.5 text-[10px] font-mono text-red-400">
+                      OVERDUE
+                    </span>
+                  {/if}
+                  {#if item.done && item.late}
+                    <span class="ml-2 inline-flex items-center rounded border border-red-900/60 bg-red-950/30 px-1.5 py-0.5 text-[10px] font-mono text-red-400">
+                      LATE
+                    </span>
+                  {/if}
+                </td>
+                <td class="p-4 font-mono text-zinc-400">{item.format}</td>
+                <td class="p-4 font-mono {item.late && !item.done ? 'text-red-400' : 'text-zinc-400'}">{fmtDate(item.deadline)}</td>
                 <td class="p-4 text-right">
-                  <button 
-                    on:click={() => onNavigate('assignments')}
-                    class="rounded-md bg-zinc-100 text-zinc-900 px-2.5 py-1 text-xs font-medium hover:bg-zinc-200 transition-colors"
-                  >
-                    Submit
-                  </button>
+                  {#if item.done}
+                    <span class="font-mono text-xs font-medium text-zinc-300">{item.score ?? 'Ungraded'}</span>
+                  {:else}
+                    <button
+                      on:click={() => onNavigate('assignments', item.courseid, item.assignmentid)}
+                      class="rounded-md bg-zinc-100 text-zinc-900 px-2.5 py-1 text-xs font-medium hover:bg-zinc-200 transition-colors"
+                    >
+                      Submit
+                    </button>
+                  {/if}
                 </td>
               </tr>
             {/each}
-            {#if pendingAssignments.length === 0}
+            {#if dashboardRows.length === 0}
               <tr>
                 <td colspan="5" class="p-6 text-center text-zinc-500">All course submissions are up to date.</td>
               </tr>
@@ -177,7 +238,7 @@
   {:else}
     <!-- INSTRUCTOR / TA METRICS -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      
+
       <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
         <div class="text-xs font-medium text-zinc-400">At Risk Students</div>
         <div class="mt-2 text-2xl font-semibold tracking-tight text-zinc-100 font-mono">
@@ -245,7 +306,7 @@
           <h2 class="text-sm font-semibold text-zinc-100">Students Missing Submissions</h2>
           <p class="text-xs text-zinc-500">Students with past due or missing assignment submissions</p>
         </div>
-        <button 
+        <button
           on:click={() => onNavigate('assignments')}
           class="text-xs text-zinc-400 hover:text-zinc-100 inline-flex items-center space-x-1"
         >
@@ -268,12 +329,12 @@
           </thead>
           <tbody class="divide-y divide-zinc-800/40 text-zinc-300">
             {#each pendingStudents as st}
-              <tr class="hover:bg-zinc-900/40 transition-colors">
+              <tr class="transition-colors {isOverdue(st.deadline) ? 'bg-red-950/20 hover:bg-red-950/30' : 'hover:bg-zinc-900/40'}">
                 <td class="p-4 font-mono font-medium text-zinc-200">{st.coursecode}</td>
                 <td class="p-4 text-zinc-100 font-medium">{st.assignmentname}</td>
                 <td class="p-4 text-zinc-300">{st.firstname} {st.lastname}</td>
                 <td class="p-4 font-mono text-zinc-500">{st.email}</td>
-                <td class="p-4 font-mono text-zinc-400">{new Date(st.deadline).toISOString().split('T')[0]}</td>
+                <td class="p-4 font-mono {isOverdue(st.deadline) ? 'text-red-400' : 'text-zinc-400'}">{new Date(st.deadline).toISOString().split('T')[0]}</td>
                 <td class="p-4 text-right">
                   <span class="inline-flex items-center rounded border border-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-400">
                     UNSUBMITTED
