@@ -10,6 +10,7 @@
   import { backdrop } from './lib/dialog';
   import Toasts from './lib/components/Toasts.svelte';
   import CommandPalette from './lib/components/CommandPalette.svelte';
+  import Logo from './lib/components/Logo.svelte';
 
   let currentUser: User | null = null;
   let activeTab: string = 'dashboard';
@@ -24,9 +25,9 @@
   let questionFocus: { id: number; n: number } | null = null;
   let dashboardRefresh: number = 0;
 
-  // Login form state (prefilled with a seeded demo account)
-  let loginEmail = 'alice.teacher@university.edu';
-  let loginPassword = 'password123';
+  // Login form state (empty by default — no credential hints in UI or source)
+  let loginEmail = '';
+  let loginPassword = '';
   let loginError = '';
   let loggingIn = false;
 
@@ -280,12 +281,12 @@
     <!-- Login -->
     <div class="flex-1 flex items-center justify-center px-4 py-16">
       <form on:submit|preventDefault={handleLogin} class="w-full max-w-sm rounded-lg border border-zinc-800 bg-zinc-900/30 p-6 space-y-4">
-        <div class="flex items-center space-x-2.5">
-          <div class="w-7 h-7 rounded-md bg-zinc-100 text-zinc-950 flex items-center justify-center font-bold text-sm">M</div>
-        <div>
-          <div class="font-display text-2xl font-semibold tracking-tight text-zinc-100">moodle++</div>
-          <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Sign in</div>
-        </div>
+        <div class="flex items-center space-x-3">
+          <Logo size={32} />
+          <div class="leading-none">
+            <div class="font-display text-2xl font-semibold tracking-tight text-zinc-100">moodle++</div>
+            <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mt-0.5">Sign in</div>
+          </div>
         </div>
 
         <div>
@@ -310,21 +311,6 @@
           class="w-full rounded-md bg-zinc-100 text-zinc-950 py-2 text-xs font-medium hover:bg-zinc-200 transition-colors disabled:opacity-50">
           {loggingIn ? 'Signing in...' : 'Sign in'}
         </button>
-
-        <div class="text-[10px] text-zinc-500 leading-relaxed">
-          <span class="font-mono uppercase tracking-widest">Demo accounts · password password123</span>
-          <div class="mt-1.5 flex flex-wrap gap-1.5">
-            {#each ['alice.teacher@university.edu', 'bob.student@university.edu', 'dave.ta@university.edu'] as demo}
-              <button
-                type="button"
-                on:click={() => { loginEmail = demo; loginPassword = 'password123'; }}
-                class="rounded border border-zinc-800 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400 hover:text-zinc-100 hover:border-zinc-600 transition-colors"
-              >
-                {demo}
-              </button>
-            {/each}
-          </div>
-        </div>
       </form>
     </div>
   {:else}

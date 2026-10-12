@@ -4,6 +4,7 @@
   import type { User as UserType, NotificationItem } from '../api';
   import { timeAgo } from '../time';
   import { identCells } from '../ident';
+  import Logo from './Logo.svelte';
 
   export let currentUser: UserType | null;
   export let enrollments: any[] = [];
@@ -67,9 +68,7 @@
           class="flex items-center space-x-2.5 text-left group" 
           on:click={() => onTabChange('dashboard')}
         >
-          <div class="w-6 h-6 rounded-md bg-zinc-100 text-zinc-950 flex items-center justify-center font-bold text-xs">
-            M
-          </div>
+          <Logo size={24} />
           <span class="text-sm font-semibold tracking-tight text-zinc-100">moodle++</span>
         </button>
 
