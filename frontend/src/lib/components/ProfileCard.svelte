@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ExternalLink } from 'lucide-svelte';
   import { api, type User } from '../api';
+  import { backdrop } from '../dialog';
 
   export let userId: number | null = null;
   export let onClose: () => void = () => {};
@@ -33,10 +34,9 @@
 <svelte:window on:keydown={handleKeydown} />
 
 {#if userId !== null}
-  <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={onClose}>
+  <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={onClose}>
     <div
       class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl"
-      on:click|stopPropagation
     >
       {#if loadError}
         <p class="text-xs text-red-300">{loadError}</p>
@@ -95,7 +95,7 @@
             </a>
           {/if}
           {#if !profile.githubLink && !profile.linkedinLink}
-            <p class="text-[11px] text-zinc-600">No professional links shared.</p>
+            <p class="text-[11px] text-zinc-500">No professional links shared.</p>
           {/if}
         </div>
       {/if}

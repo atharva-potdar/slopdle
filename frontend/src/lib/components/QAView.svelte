@@ -2,6 +2,7 @@
   import { Plus, ArrowUp, Check } from 'lucide-svelte';
   import ProfileCard from './ProfileCard.svelte';
   import { api, type Question, type Answer, type User } from '../api';
+  import { backdrop } from '../dialog';
 
   export let currentUser: User;
   export let selectedCourseId: number;
@@ -125,7 +126,7 @@
   <!-- Header -->
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
     <div>
-      <h1 class="text-xl font-semibold tracking-tight text-zinc-100">Course Q&A Discussion</h1>
+      <h1 class="text-2xl font-semibold tracking-tight text-zinc-100">Course Q&A Discussion</h1>
       <p class="text-xs text-zinc-500 mt-0.5">Threaded discussions with upvotes and verified official answers by TA/Faculty</p>
     </div>
 
@@ -142,20 +143,20 @@
 
     <!-- Questions Sidebar -->
     <div class="lg:col-span-5 space-y-2">
-      <div class="text-[10px] font-mono uppercase text-zinc-500 px-1">
+      <div class="text-[11px] font-mono uppercase text-zinc-500 px-1">
         Threads ({questions.length})
       </div>
 
       <div class="space-y-1.5">
         {#each questions as q}
           <button
-            class="w-full text-left rounded-lg border p-3.5 transition-colors {selectedQuestionId === q.questionid ? 'border-zinc-700 bg-zinc-900/60' : 'border-zinc-800 bg-zinc-900/20 hover:bg-zinc-900/40'}"
+            class="w-full text-left rounded-lg border p-3.5 transition-colors {selectedQuestionId === q.questionid ? 'border-zinc-700 bg-zinc-900/60' : 'border-transparent hover:border-zinc-800 hover:bg-zinc-900/40'}"
             on:click={() => selectQuestion(q.questionid)}
           >
             <div class="flex items-start justify-between space-x-2">
               <h3 class="text-xs font-semibold text-zinc-100 line-clamp-1">{q.title}</h3>
               {#if q.hasofficialanswer}
-                <span class="inline-flex items-center rounded border border-zinc-700 px-1.5 py-0.2 text-[9px] font-mono text-zinc-300 shrink-0">
+                <span class="inline-flex items-center rounded border border-zinc-700 px-1.5 py-0.5 text-[11px] font-mono text-zinc-300 shrink-0">
                   SOLVED
                 </span>
               {/if}
@@ -191,7 +192,7 @@
         
         <!-- Question Box -->
         <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-5 space-y-3">
-          <div class="flex items-center space-x-2 text-[10px] font-mono text-zinc-500">
+          <div class="flex items-center space-x-2 text-[11px] font-mono text-zinc-500">
             <span>QUESTION #{activeQuestion.questionid}</span>
             <span>•</span>
             <span>COURSE {courseCode || '—'}</span>
@@ -213,12 +214,12 @@
 
         <!-- Answers List -->
         <div class="space-y-3">
-          <div class="text-[10px] font-mono uppercase text-zinc-500 px-1">
+          <div class="text-[11px] font-mono uppercase text-zinc-500 px-1">
             Answers ({answers.length})
           </div>
 
           {#each answers as ans}
-            <div class="rounded-lg border border-zinc-800 bg-zinc-900/20 p-4 space-y-2.5">
+            <div class="border-t border-zinc-800/60 py-4 space-y-2.5 first:border-t-0 first:pt-0">
               
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-2 text-xs">
@@ -229,14 +230,14 @@
                     {ans.firstname} {ans.lastname}
                   </button>
                   {#if ans.userrole?.String}
-                    <span class="font-mono text-[10px] text-zinc-500 border border-zinc-800 px-1 py-0.2 rounded">
+                    <span class="font-mono text-[11px] text-zinc-500 border border-zinc-800 px-1 py-0.2 rounded">
                       {ans.userrole.String}
                     </span>
                   {/if}
                 </div>
 
                 {#if ans.isofficialanswer?.Bool}
-                  <span class="inline-flex items-center space-x-1 rounded border border-zinc-700 bg-zinc-800/40 px-1.5 py-0.5 text-[10px] font-mono text-zinc-200">
+                  <span class="inline-flex items-center space-x-1 rounded border border-zinc-700 bg-zinc-800/40 px-1.5 py-0.5 text-[11px] font-mono text-zinc-200">
                     <Check class="w-3 h-3 text-zinc-300" />
                     <span>VERIFIED ANSWER</span>
                   </span>
@@ -249,7 +250,7 @@
               <div class="pt-2.5 border-t border-zinc-800/60 flex items-center justify-between">
                 <button
                   on:click={() => handleUpvote(ans.answerid)}
-                  class="inline-flex items-center space-x-1 rounded border px-2 py-1 text-xs transition-colors font-mono {ans.hasupvoted
+                  class="inline-flex items-center space-x-1 rounded border px-2.5 py-1.5 text-xs transition-colors font-mono {ans.hasupvoted
                     ? 'border-zinc-500 bg-zinc-800 text-zinc-100'
                     : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'}"
                 >
@@ -260,7 +261,7 @@
                 {#if isTeacherOrTA}
                   <button
                     on:click={() => handleToggleOfficial(ans.answerid, !!ans.isofficialanswer?.Bool)}
-                    class="text-[11px] font-medium px-2 py-0.5 rounded border border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+                    class="text-[11px] font-medium px-2.5 py-1 rounded border border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
                   >
                     {ans.isofficialanswer?.Bool ? 'Revoke official' : 'Mark as official'}
                   </button>
@@ -278,7 +279,7 @@
               bind:value={newAnswerBody}
               rows="3"
               placeholder="Write your explanation or code solution..."
-              class="w-full rounded-md border border-zinc-800 bg-zinc-950 p-2.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              class="w-full rounded-md border border-zinc-800 bg-zinc-950 p-2.5 text-xs text-zinc-100 placeholder:text-zinc-500 "
             ></textarea>
             <div class="flex justify-end">
               <button
@@ -301,8 +302,8 @@
   </div>
 
   <!-- Ask Question Modal -->
-  {#if showAskModal}    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={() => showAskModal = false}>
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
+  {#if showAskModal}    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={() => showAskModal = false}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold text-zinc-100">Ask a Question</h3>
         
         <div>
@@ -311,7 +312,7 @@
             id="question-title-input"
             bind:value={newTitle}
             placeholder="e.g. How does BCNF handle multi-attribute determinants?"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 "
           />
         </div>
 
@@ -322,7 +323,7 @@
             bind:value={newBody}
             rows="4"
             placeholder="Provide context and code snippet if applicable..."
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 p-2.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 p-2.5 text-xs text-zinc-100 placeholder:text-zinc-500 "
           ></textarea>
         </div>
 

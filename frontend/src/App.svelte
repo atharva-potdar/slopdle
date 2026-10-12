@@ -7,6 +7,7 @@
   import AttendanceView from './lib/components/AttendanceView.svelte';
   import QAView from './lib/components/QAView.svelte';
   import { api, parseIntent, type User, type NotificationItem } from './lib/api';
+  import { backdrop } from './lib/dialog';
 
   let currentUser: User | null = null;
   let activeTab: string = 'dashboard';
@@ -274,13 +275,13 @@
         <div>
           <label for="login-email" class="block text-xs font-medium text-zinc-400 mb-1">Email</label>
           <input id="login-email" type="email" bind:value={loginEmail} autocomplete="username"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+            class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 " />
         </div>
 
         <div>
           <label for="login-password" class="block text-xs font-medium text-zinc-400 mb-1">Password</label>
           <input id="login-password" type="password" bind:value={loginPassword} autocomplete="current-password"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+            class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 " />
         </div>
 
         {#if loginError}
@@ -351,46 +352,46 @@
         <span>•</span>
         <span class="text-zinc-500">Learning Management System</span>
       </div>
-      <div class="flex items-center space-x-2 font-mono text-[10px] text-zinc-600">
+      <div class="flex items-center space-x-2 font-mono text-[10px] ">
         <span>v{__APP_VERSION__}</span>
       </div>
     </div>
   </footer>
 
   {#if showProfile}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={() => showProfile = false}>
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={() => showProfile = false}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold text-zinc-100">Edit Profile</h3>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label for="profile-first" class="block text-xs font-medium text-zinc-400 mb-1">First Name</label>
             <input id="profile-first" bind:value={profileFirstName}
-              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 " />
           </div>
           <div>
             <label for="profile-last" class="block text-xs font-medium text-zinc-400 mb-1">Last Name</label>
             <input id="profile-last" bind:value={profileLastName}
-              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 " />
           </div>
         </div>
 
         <div>
           <label for="profile-bio" class="block text-xs font-medium text-zinc-400 mb-1">Bio</label>
           <textarea id="profile-bio" bind:value={profileBio} rows="3"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400"></textarea>
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 "></textarea>
         </div>
 
         <div>
           <label for="profile-github" class="block text-xs font-medium text-zinc-400 mb-1">GitHub Link</label>
           <input id="profile-github" bind:value={profileGithub} placeholder="https://github.com/username"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono " />
         </div>
 
         <div>
           <label for="profile-linkedin" class="block text-xs font-medium text-zinc-400 mb-1">LinkedIn Link</label>
           <input id="profile-linkedin" bind:value={profileLinkedin} placeholder="https://linkedin.com/in/username"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono " />
         </div>
 
         <div class="border-t border-zinc-800 pt-3">
@@ -403,14 +404,14 @@
                   type="button"
                   on:click={() => removeProfilePhoto(url)}
                   aria-label="Remove photo"
-                  class="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-zinc-950 border border-zinc-700 text-zinc-400 hover:text-red-300 text-[11px] leading-none flex items-center justify-center"
+                  class="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-zinc-950 border border-zinc-700 text-zinc-400 hover:text-red-300 text-[11px] leading-none flex items-center justify-center after:absolute after:-inset-3 after:content-['']"
                 >
                   ×
                 </button>
               </div>
             {/each}
             {#if profilePhotos.length === 0}
-              <span class="text-[11px] text-zinc-600">No photos uploaded yet.</span>
+              <span class="text-[11px] text-zinc-500">No photos uploaded yet.</span>
             {/if}
           </div>
           <div class="flex gap-2">
@@ -418,7 +419,7 @@
               id="profile-photo-url"
               bind:value={newPhotoUrl}
               placeholder="https://example.com/photo.jpg"
-              class="flex-1 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              class="flex-1 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono placeholder:text-zinc-500"
             />
             <button
               type="button"

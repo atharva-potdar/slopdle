@@ -121,12 +121,12 @@
 <div class="space-y-8">
 
   <!-- Page Header -->
-  <div class="flex items-center justify-between border-b border-zinc-800 pb-5">
+  <div class="flex items-center justify-between border-b border-line pb-5">
     <div>
-      <h1 class="text-xl font-semibold tracking-tight text-zinc-100">
+      <h1 class="text-2xl font-semibold tracking-tight text-ink">
         {currentUser.firstName} {currentUser.lastName}
       </h1>
-      <p class="text-xs text-zinc-500 mt-0.5">
+      <p class="text-xs text-faint mt-0.5">
         {currentRole ? `${currentRole} account` : 'Account'}
       </p>
     </div>
@@ -137,34 +137,34 @@
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
       <!-- Attendance Card -->
-      <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
-        <div class="text-xs font-medium text-zinc-400">Attendance </div>
-        <div class="mt-2 text-2xl font-semibold tracking-tight text-zinc-100 font-mono">
+      <div class="rounded-lg border border-line bg-panel p-4">
+        <div class="text-xs font-medium text-muted">Attendance </div>
+        <div class="mt-2 text-2xl font-semibold tracking-tight text-ink font-mono">
           {attendance?.percentage ?? '—'}
         </div>
-        <p class="text-[11px] text-zinc-500 mt-1">
+        <p class="text-[11px] text-faint mt-1">
           {attendance?.presentCount || 0} of {attendance?.totalSessions || 0} class sessions attended
         </p>
       </div>
 
       <!-- Pending Assignments -->
-      <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
-        <div class="text-xs font-medium text-zinc-400">Pending Submissions</div>
-        <div class="mt-2 text-2xl font-semibold tracking-tight text-zinc-100 font-mono">
+      <div class="rounded-lg border border-line bg-panel p-4">
+        <div class="text-xs font-medium text-muted">Pending Submissions</div>
+        <div class="mt-2 text-2xl font-semibold tracking-tight text-ink font-mono">
           {pendingAssignments.length}
         </div>
-        <p class="text-[11px] text-zinc-500 mt-1">
+        <p class="text-[11px] text-faint mt-1">
           Requires format validation before deadline
         </p>
       </div>
 
       <!-- Evaluated Grade -->
-      <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
-        <div class="text-xs font-medium text-zinc-400">Latest Score</div>
-        <div class="mt-2 text-2xl font-semibold tracking-tight text-zinc-100 font-mono">
+      <div class="rounded-lg border border-line bg-panel p-4">
+        <div class="text-xs font-medium text-muted">Latest Score</div>
+        <div class="mt-2 text-2xl font-semibold tracking-tight text-ink font-mono">
           {grades.length > 0 ? `${grades[0].effectivescore ?? grades[0].score}` : 'Pending'}
         </div>
-        <p class="text-[11px] text-zinc-500 mt-1 truncate">
+        <p class="text-[11px] text-faint mt-1 truncate">
           {grades.length > 0 ? grades[0].assignment : 'Awaiting instructor evaluation'}
         </p>
       </div>
@@ -172,11 +172,11 @@
     </div>
 
     <!-- Student Pending Work Table -->
-    <div class="rounded-lg border border-zinc-800 bg-zinc-900/20 overflow-hidden">
-      <div class="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+    <div class="rounded-lg border border-line bg-panel overflow-hidden">
+      <div class="px-4 py-3 border-b border-line flex items-center justify-between">
         <div>
-          <h2 class="text-sm font-semibold text-zinc-100">Course Assignments</h2>
-          <p class="text-xs text-zinc-500">
+          <h2 class="text-sm font-semibold text-ink">Course Assignments</h2>
+          <p class="text-xs text-faint">
             Submissions requiring technical format verification{#if hiddenCompletedCount > 0}
               <span class="font-mono"> • {hiddenCompletedCount} older completed hidden</span>
             {/if}
@@ -184,7 +184,7 @@
         </div>
         <button
           on:click={() => onNavigate('assignments')}
-          class="text-xs text-zinc-400 hover:text-zinc-100 inline-flex items-center space-x-1"
+          class="text-xs text-muted hover:text-ink inline-flex items-center space-x-1"
         >
           <span>View all</span>
           <ArrowUpRight class="w-3.5 h-3.5" />
@@ -193,7 +193,7 @@
 
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs">
-          <thead class="border-b border-zinc-800 text-zinc-400 font-medium bg-zinc-950/40">
+          <thead class="border-b border-line text-muted font-medium bg-canvas">
             <tr>
               <th class="h-9 px-4 align-middle font-medium">Course</th>
               <th class="h-9 px-4 align-middle font-medium">Assignment</th>
@@ -202,36 +202,36 @@
               <th class="h-9 px-4 align-middle font-medium text-right">Action</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-800/40 text-zinc-300">
+          <tbody class="divide-y divide-line text-ink">
             {#each dashboardRows as item}
-              <tr class="transition-colors {item.done ? 'opacity-50 hover:bg-zinc-900/20' : item.late ? 'bg-red-950/20 hover:bg-red-950/30' : 'hover:bg-zinc-900/40'}">
-                <td class="p-4 font-mono font-medium text-zinc-200">{item.coursecode}</td>
-                <td class="p-4 text-zinc-100 font-medium">
+              <tr class="transition-colors {item.done ? 'opacity-50 hover:bg-panel' : item.late ? 'bg-red-950/20 hover:bg-red-950/30' : 'hover:bg-white/5'}">
+                <td class="p-4 font-mono font-medium text-ink">{item.coursecode}</td>
+                <td class="p-4 text-ink font-medium">
                   {item.assignmentname}
                   {#if item.done}
-                    <span class="ml-2 inline-flex items-center rounded border border-zinc-700 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300">
+                    <span class="ml-2 inline-flex items-center rounded border border-zinc-700 px-1.5 py-0.5 text-[11px] font-mono text-ink">
                       SUBMITTED{item.submittedOn ? ` ${item.submittedOn}` : ''}
                     </span>
                   {:else if item.late}
-                    <span class="ml-2 inline-flex items-center rounded border border-red-900/60 bg-red-950/30 px-1.5 py-0.5 text-[10px] font-mono text-red-400">
+                    <span class="ml-2 inline-flex items-center rounded border border-red-900/60 bg-red-950/30 px-1.5 py-0.5 text-[11px] font-mono text-red-400">
                       OVERDUE
                     </span>
                   {/if}
                   {#if item.done && item.late}
-                    <span class="ml-2 inline-flex items-center rounded border border-red-900/60 bg-red-950/30 px-1.5 py-0.5 text-[10px] font-mono text-red-400">
+                    <span class="ml-2 inline-flex items-center rounded border border-red-900/60 bg-red-950/30 px-1.5 py-0.5 text-[11px] font-mono text-red-400">
                       LATE
                     </span>
                   {/if}
                 </td>
-                <td class="p-4 font-mono text-zinc-400">{item.format}</td>
-                <td class="p-4 font-mono {item.late && !item.done ? 'text-red-400' : 'text-zinc-400'}">{fmtDate(item.deadline)}</td>
+                <td class="p-4 font-mono text-muted">{item.format}</td>
+                <td class="p-4 font-mono {item.late && !item.done ? 'text-red-400' : 'text-muted'}">{fmtDate(item.deadline)}</td>
                 <td class="p-4 text-right">
                   {#if item.done}
-                    <span class="font-mono text-xs font-medium text-zinc-300">{item.score ?? 'Ungraded'}</span>
+                    <span class="font-mono text-xs font-medium text-ink">{item.score ?? 'Ungraded'}</span>
                   {:else}
                     <button
                       on:click={() => onNavigate('assignments', item.courseid, item.assignmentid)}
-                      class="rounded-md bg-zinc-100 text-zinc-900 px-2.5 py-1 text-xs font-medium hover:bg-zinc-200 transition-colors"
+                      class="rounded-md bg-ink text-canvas px-2.5 py-1 text-xs font-medium hover:bg-white transition-colors"
                     >
                       Submit
                     </button>
@@ -241,7 +241,7 @@
             {/each}
             {#if dashboardRows.length === 0}
               <tr>
-                <td colspan="5" class="p-6 text-center text-zinc-500">All course submissions are up to date.</td>
+                <td colspan="5" class="p-6 text-center text-faint">All course submissions are up to date.</td>
               </tr>
             {/if}
           </tbody>
@@ -253,32 +253,32 @@
     <!-- INSTRUCTOR / TA METRICS -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-      <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
-        <div class="text-xs font-medium text-zinc-400">At Risk Students</div>
-        <div class="mt-2 text-2xl font-semibold tracking-tight text-zinc-100 font-mono">
+      <div class="rounded-lg border border-line bg-panel p-4">
+        <div class="text-xs font-medium text-muted">At Risk Students</div>
+        <div class="mt-2 text-2xl font-semibold tracking-tight text-ink font-mono">
           {pendingStudents.length}
         </div>
-        <p class="text-[11px] text-zinc-500 mt-1">
+        <p class="text-[11px] text-faint mt-1">
           Missing critical assignments
         </p>
       </div>
 
-      <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
-        <div class="text-xs font-medium text-zinc-400">Active Courses</div>
-        <div class="mt-2 text-2xl font-semibold tracking-tight text-zinc-100 font-mono">
+      <div class="rounded-lg border border-line bg-panel p-4">
+        <div class="text-xs font-medium text-muted">Active Courses</div>
+        <div class="mt-2 text-2xl font-semibold tracking-tight text-ink font-mono">
           {staffCourseIds.size}
         </div>
-        <p class="text-[11px] text-zinc-500 mt-1">
+        <p class="text-[11px] text-faint mt-1">
           Total courses managed
         </p>
       </div>
 
-      <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
-        <div class="text-xs font-medium text-zinc-400">Pending Grading</div>
-        <div class="mt-2 text-2xl font-semibold tracking-tight text-zinc-100 font-mono">
+      <div class="rounded-lg border border-line bg-panel p-4">
+        <div class="text-xs font-medium text-muted">Pending Grading</div>
+        <div class="mt-2 text-2xl font-semibold tracking-tight text-ink font-mono">
           {pendingGradingCount}
         </div>
-        <p class="text-[11px] text-zinc-500 mt-1">
+        <p class="text-[11px] text-faint mt-1">
           Submissions awaiting review
         </p>
       </div>
@@ -286,16 +286,16 @@
     </div>
 
     <!-- Post Announcement -->
-    <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
+    <div class="rounded-lg border border-line bg-panel p-4 space-y-3">
       <div>
-        <h2 class="text-sm font-semibold text-zinc-100">Post Announcement</h2>
-        <p class="text-xs text-zinc-500">Sends a notification to all {enrolledStudents.length} enrolled students in this course</p>
+        <h2 class="text-sm font-semibold text-ink">Post Announcement</h2>
+        <p class="text-xs text-faint">Sends a notification to all {enrolledStudents.length} enrolled students in this course</p>
       </div>
       <textarea
         bind:value={announcementMsg}
         rows="2"
         placeholder="e.g. Reminder: Assignment 3 is due Friday at 23:59."
-        class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+        class="w-full rounded-md border border-line bg-canvas px-3 py-2 text-xs text-ink placeholder:text-faint "
       ></textarea>
       <div class="flex items-center justify-between">
         {#if announcementStatus}
@@ -306,7 +306,7 @@
         <button
           on:click={sendAnnouncement}
           disabled={!announcementMsg.trim() || enrolledStudents.length === 0}
-          class="rounded-md bg-zinc-100 text-zinc-950 px-3 py-1.5 text-xs font-medium hover:bg-zinc-200 transition-colors disabled:opacity-50"
+          class="rounded-md bg-ink text-canvas px-3 py-1.5 text-xs font-medium hover:bg-white transition-colors disabled:opacity-50"
         >
           Send Announcement
         </button>
@@ -314,15 +314,15 @@
     </div>
 
     <!-- Instructor Missing Submissions Table -->
-    <div class="rounded-lg border border-zinc-800 bg-zinc-900/20 overflow-hidden">
-      <div class="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+    <div class="rounded-lg border border-line bg-panel overflow-hidden">
+      <div class="px-4 py-3 border-b border-line flex items-center justify-between">
         <div>
-          <h2 class="text-sm font-semibold text-zinc-100">Students Missing Submissions</h2>
-          <p class="text-xs text-zinc-500">Students with past due or missing assignment submissions</p>
+          <h2 class="text-sm font-semibold text-ink">Students Missing Submissions</h2>
+          <p class="text-xs text-faint">Students with past due or missing assignment submissions</p>
         </div>
         <button
           on:click={() => onNavigate('assignments')}
-          class="text-xs text-zinc-400 hover:text-zinc-100 inline-flex items-center space-x-1"
+          class="text-xs text-muted hover:text-ink inline-flex items-center space-x-1"
         >
           <span>Grading report</span>
           <ArrowUpRight class="w-3.5 h-3.5" />
@@ -331,7 +331,7 @@
 
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs">
-          <thead class="border-b border-zinc-800 text-zinc-400 font-medium bg-zinc-950/40">
+          <thead class="border-b border-line text-muted font-medium bg-canvas">
             <tr>
               <th class="h-9 px-4 align-middle font-medium">Course</th>
               <th class="h-9 px-4 align-middle font-medium">Assignment</th>
@@ -341,16 +341,16 @@
               <th class="h-9 px-4 align-middle font-medium text-right">Status</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-800/40 text-zinc-300">
+          <tbody class="divide-y divide-line text-ink">
             {#each pendingStudents as st}
-              <tr class="transition-colors {isOverdue(st.deadline) ? 'bg-red-950/20 hover:bg-red-950/30' : 'hover:bg-zinc-900/40'}">
-                <td class="p-4 font-mono font-medium text-zinc-200">{st.coursecode}</td>
-                <td class="p-4 text-zinc-100 font-medium">{st.assignmentname}</td>
-                <td class="p-4 text-zinc-300">{st.firstname} {st.lastname}</td>
-                <td class="p-4 font-mono text-zinc-500">{st.email}</td>
-                <td class="p-4 font-mono {isOverdue(st.deadline) ? 'text-red-400' : 'text-zinc-400'}">{new Date(st.deadline).toISOString().split('T')[0]}</td>
+              <tr class="transition-colors {isOverdue(st.deadline) ? 'bg-red-950/20 hover:bg-red-950/30' : 'hover:bg-white/5'}">
+                <td class="p-4 font-mono font-medium text-ink">{st.coursecode}</td>
+                <td class="p-4 text-ink font-medium">{st.assignmentname}</td>
+                <td class="p-4 text-ink">{st.firstname} {st.lastname}</td>
+                <td class="p-4 font-mono text-faint">{st.email}</td>
+                <td class="p-4 font-mono {isOverdue(st.deadline) ? 'text-red-400' : 'text-muted'}">{new Date(st.deadline).toISOString().split('T')[0]}</td>
                 <td class="p-4 text-right">
-                  <span class="inline-flex items-center rounded border border-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-400">
+                  <span class="inline-flex items-center rounded border border-line px-1.5 py-0.5 text-[11px] font-mono text-muted">
                     UNSUBMITTED
                   </span>
                 </td>

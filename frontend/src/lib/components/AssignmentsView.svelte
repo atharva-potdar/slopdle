@@ -5,6 +5,7 @@
     type Assignment, type SubmissionReportItem,
     type StudentGradeItem, type PendingStudent, type User, type Rubric
   } from '../api';
+  import { backdrop } from '../dialog';
 
   export let currentUser: User;
   export let selectedCourseId: number;
@@ -437,14 +438,14 @@
   <!-- Header -->
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
     <div>
-      <h1 class="text-xl font-semibold tracking-tight text-zinc-100">Assessments & Reports</h1>
+      <h1 class="text-2xl font-semibold tracking-tight text-zinc-100">Assessments & Reports</h1>
       <p class="text-xs text-zinc-500 mt-0.5">Format-enforced submissions, rubric grading, and Case Study SQL query reports</p>
     </div>
 
     <!-- ShadCN Sub-tabs -->
     <div class="inline-flex h-9 items-center justify-center rounded-lg bg-zinc-900/60 p-1 text-zinc-400 border border-zinc-800 text-xs">
       <button
-        class="rounded-md px-3 py-1 font-medium transition-all {activeTab === 'assignments' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
+        class="rounded-md px-3 py-1 font-medium transition-colors {activeTab === 'assignments' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
         on:click={() => activeTab = 'assignments'}
       >
         Assignments ({assignments.length})
@@ -452,21 +453,21 @@
 
       {#if isTeacher}
         <button
-          class="rounded-md px-3 py-1 font-medium transition-all {activeTab === 'report' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
+          class="rounded-md px-3 py-1 font-medium transition-colors {activeTab === 'report' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
           on:click={() => { activeTab = 'report'; loadTabReports(); }}
         >
           Submission Report
         </button>
 
         <button
-          class="rounded-md px-3 py-1 font-medium transition-all {activeTab === 'pending' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
+          class="rounded-md px-3 py-1 font-medium transition-colors {activeTab === 'pending' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
           on:click={() => { activeTab = 'pending'; loadTabReports(); }}
         >
           Missing Submissions
         </button>
       {:else}
         <button
-          class="rounded-md px-3 py-1 font-medium transition-all {activeTab === 'grades' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
+          class="rounded-md px-3 py-1 font-medium transition-colors {activeTab === 'grades' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
           on:click={() => { activeTab = 'grades'; loadTabReports(); }}
         >
           Grade Book
@@ -475,7 +476,7 @@
 
       {#if isTeacher}
         <button
-          class="rounded-md px-3 py-1 font-medium transition-all {activeTab === 'rubrics' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
+          class="rounded-md px-3 py-1 font-medium transition-colors {activeTab === 'rubrics' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
           on:click={() => activeTab = 'rubrics'}
         >
           Rubrics ({rubrics.length})
@@ -504,18 +505,18 @@
             <div class="flex items-center justify-between text-xs">
               <span class="font-mono text-zinc-500">ID #{a.assignmentid}</span>
               <div class="flex items-center space-x-1.5">
-                <span class="font-mono text-[10px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950 uppercase">
+                <span class="font-mono text-[11px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950 uppercase">
                   {a.formatrequired?.String || 'Text'}
                 </span>
-                <span class="font-mono text-[10px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
+                <span class="font-mono text-[11px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
                   {a.rubrictitle?.String || 'No rubric'}
                 </span>
                 {#if a.latepenaltyenabled ?? true}
-                  <span class="font-mono text-[10px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
+                  <span class="font-mono text-[11px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
                     Late −{parseFloat(a.latepenaltyperday || '10')}%/day
                   </span>
                 {:else}
-                  <span class="font-mono text-[10px] text-zinc-500 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
+                  <span class="font-mono text-[11px] text-zinc-500 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
                     No late penalty
                   </span>
                 {/if}
@@ -609,7 +610,7 @@
                 <td class="p-4 text-zinc-300">{rep.studentName}</td>
                 <td class="p-4 max-w-[12rem]">
                   {#if isUrl(rep.content)}
-                    <span class="font-mono text-[9px] uppercase px-1 py-0.5 rounded border border-zinc-800 bg-zinc-950 text-zinc-500 mr-1.5">
+                    <span class="font-mono text-[11px] uppercase px-1 py-0.5 rounded border border-zinc-800 bg-zinc-950 text-zinc-500 mr-1.5">
                       {isPdf(rep.content) ? 'PDF' : 'Link'}
                     </span>
                     <a
@@ -628,7 +629,7 @@
                 <td class="p-4 font-mono text-zinc-400">{rep.submissionTime || 'N/A'}</td>
                 <td class="p-4 font-mono text-zinc-400">{rep.deadline}</td>
                 <td class="p-4">
-                  <span class="inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-mono {rep.timeliness === 'ON TIME' ? 'border-zinc-700 bg-zinc-800/40 text-zinc-200' : 'border-red-900/60 bg-red-950/30 text-red-400'}">
+                  <span class="inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-mono {rep.timeliness === 'ON TIME' ? 'border-zinc-700 bg-zinc-800/40 text-zinc-200' : 'border-red-900/60 bg-red-950/30 text-red-400'}">
                     {rep.timeliness}
                   </span>
                 </td>
@@ -642,7 +643,7 @@
                   <td class="p-4 text-right">
                     <button
                       on:click={() => openGradeModal(rep)}
-                      class="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 hover:text-white hover:bg-zinc-800"
+                      class="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-[11px] text-zinc-300 hover:text-white hover:bg-zinc-800"
                     >
                       Grade
                     </button>
@@ -670,7 +671,7 @@
             id="pending-assignment-select"
             bind:value={selectedAssignmentId}
             on:change={loadPending}
-            class="rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            class="rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-200 "
           >
             {#each assignments as a}
               <option value={a.assignmentid}>{a.title}</option>
@@ -700,7 +701,7 @@
                 <td class="p-4 font-mono text-zinc-500">{p.email}</td>
                 <td class="p-4 font-mono text-zinc-400">{new Date(p.deadline).toISOString().split('T')[0]}</td>
                 <td class="p-4 text-right">
-                  <span class="inline-flex items-center rounded border border-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-400">
+                  <span class="inline-flex items-center rounded border border-zinc-800 px-1.5 py-0.5 text-[11px] font-mono text-zinc-400">
                     PENDING
                   </span>
                 </td>
@@ -727,7 +728,7 @@
               <h4 class="text-xs font-semibold text-zinc-100">
                 {g.assignment}
                 {#if (g.dayslate || 0) > 0}
-                  <span class="ml-2 inline-flex items-center rounded border border-red-900/60 bg-red-950/30 px-1.5 py-0.5 text-[10px] font-mono text-red-400">
+                  <span class="ml-2 inline-flex items-center rounded border border-red-900/60 bg-red-950/30 px-1.5 py-0.5 text-[11px] font-mono text-red-400">
                     {g.dayslate}d LATE −{g.penaltyapplied}
                   </span>
                 {/if}
@@ -771,7 +772,7 @@
               <div class="flex items-center space-x-2">
                 <span class="text-xs font-semibold text-zinc-100">{r.title}</span>
                 {#if r.department?.String}
-                  <span class="font-mono text-[10px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
+                  <span class="font-mono text-[11px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
                     {r.department.String}
                   </span>
                 {/if}
@@ -795,8 +796,8 @@
 
   <!-- Submit Work Modal -->
   {#if showSubmitModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold text-zinc-100">Submit Assignment</h3>
         <p class="text-xs text-zinc-500">
           Target: <span class="text-zinc-300 font-medium">{assignments.find(a => a.assignmentid === selectedAssignmentId)?.title}</span>
@@ -810,9 +811,9 @@
             id="submission-content-input"
             bind:value={submissionContent}
             placeholder="https://github.com/username/repository"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono placeholder:text-zinc-500 "
           />
-          <p class="text-[10px] text-zinc-500 mt-1">
+          <p class="text-[11px] text-zinc-500 mt-1">
             * Validated on Go server backend per format requirements.
           </p>
         </div>
@@ -839,8 +840,8 @@
 
   <!-- Grade Modal -->
   {#if showGradeModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
         <div>
           <h3 class="text-sm font-semibold text-zinc-100">Evaluate Submission</h3>
           {#if gradingContext}
@@ -852,8 +853,8 @@
         </div>
 
         {#if gradingContent}
-          <div class="rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
-            <div class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-1.5">Submitted work</div>
+          <div class="pt-3 border-t border-zinc-800/60">
+            <div class="text-[11px] font-mono uppercase tracking-wider text-zinc-500 mb-1.5">Submitted work</div>
             {#if isPdf(gradingContent) && isUrl(gradingContent)}
               <iframe
                 src={gradingContent}
@@ -886,8 +887,8 @@
         {/if}
 
         {#if gradingCriteria.length > 0}
-          <div class="rounded-md border border-zinc-800 bg-zinc-900/40 p-3 space-y-3">
-            <div class="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Rubric criteria</div>
+          <div class="pt-3 border-t border-zinc-800/60 space-y-3">
+            <div class="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Rubric criteria</div>
             {#each gradingCriteria as c}
               <div>
                 <div class="flex items-center justify-between text-xs mb-1">
@@ -919,7 +920,7 @@
             bind:value={gradeScore}
             min="0"
             max="100"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 "
           />
         </div>
 
@@ -929,7 +930,7 @@
             id="grade-feedback-input"
             rows="3" 
             bind:value={gradeFeedback} 
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 "
           ></textarea>
         </div>
 
@@ -943,32 +944,32 @@
 
   <!-- Create Assignment Modal -->
   {#if showCreateModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold text-zinc-100">{editingAssignmentId ? 'Edit Assignment' : 'Create Assignment'}</h3>
 
         <div>
           <label for="assign-title" class="block text-xs font-medium text-zinc-400 mb-1">Title</label>
           <input id="assign-title" bind:value={newAssignTitle}
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 " />
         </div>
 
         <div>
           <label for="assign-desc" class="block text-xs font-medium text-zinc-400 mb-1">Description</label>
           <textarea id="assign-desc" bind:value={newAssignDesc} rows="3"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400"></textarea>
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 "></textarea>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label for="assign-deadline" class="block text-xs font-medium text-zinc-400 mb-1">Deadline</label>
             <input id="assign-deadline" type="datetime-local" bind:value={newAssignDeadline}
-              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 " />
           </div>
           <div>
             <label for="assign-format" class="block text-xs font-medium text-zinc-400 mb-1">Format</label>
             <select id="assign-format" bind:value={newAssignFormat}
-              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400">
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 ">
               <option value="PDF/ZIP">PDF/ZIP</option>
               <option value="GitHub">GitHub</option>
               <option value="Text">Text</option>
@@ -979,7 +980,7 @@
           <div>
             <label for="assign-rubric" class="block text-xs font-medium text-zinc-400 mb-1">Rubric</label>
             <select id="assign-rubric" bind:value={newAssignRubricId}
-              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400">
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 ">
               <option value={0}>None</option>
               {#each rubrics as r}
                 <option value={r.rubricid}>{r.title}</option>
@@ -1034,26 +1035,26 @@
 
   <!-- Rubric Modal -->
   {#if showRubricModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold text-zinc-100">{editingRubricId ? 'Edit Rubric' : 'Create Rubric'}</h3>
 
         <div>
           <label for="rubric-title" class="block text-xs font-medium text-zinc-400 mb-1">Title</label>
           <input id="rubric-title" bind:value={rubricTitle}
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 " />
         </div>
 
         <div>
           <label for="rubric-department" class="block text-xs font-medium text-zinc-400 mb-1">Department</label>
           <input id="rubric-department" bind:value={rubricDepartment} placeholder="Computer Science"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 " />
         </div>
 
         <div>
           <label for="rubric-description" class="block text-xs font-medium text-zinc-400 mb-1">Description</label>
           <textarea id="rubric-description" bind:value={rubricDescription} rows="3"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400"></textarea>
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 "></textarea>
         </div>
 
         <div class="border-t border-zinc-800 pt-3 space-y-2">
@@ -1064,7 +1065,7 @@
                 bind:value={crit.title}
                 placeholder="Criterion title"
                 aria-label="Criterion title"
-                class="flex-1 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                class="flex-1 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 "
               />
               <input
                 type="number"
@@ -1072,27 +1073,27 @@
                 min="0.5"
                 step="0.5"
                 aria-label="Max points"
-                class="w-20 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                class="w-20 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 font-mono "
               />
               <button
                 type="button"
                 on:click={() => removeCriterionRow(idx)}
                 aria-label="Remove criterion"
-                class="h-7 w-7 inline-flex items-center justify-center rounded border border-zinc-800 text-zinc-500 hover:text-red-300 hover:border-red-900/60 transition-colors"
+                class="h-7 w-7 inline-flex items-center justify-center rounded border border-zinc-800 text-zinc-500 hover:text-red-300 hover:border-red-900/60 transition-colors relative after:absolute after:-inset-2 after:content-['']"
               >
                 ×
               </button>
             </div>
           {/each}
           {#if rubricCriteria.length === 0}
-            <p class="text-[11px] text-zinc-600">No criteria — grading uses a single flat score.</p>
+            <p class="text-[11px] text-zinc-500">No criteria — grading uses a single flat score.</p>
           {/if}
           <div class="flex items-center gap-2">
             <input
               bind:value={newCriterionTitle}
               placeholder="e.g. Correctness"
               aria-label="New criterion title"
-              class="flex-1 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              class="flex-1 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 "
             />
             <input
               type="number"
@@ -1100,7 +1101,7 @@
               min="0.5"
               step="0.5"
               aria-label="New criterion max points"
-              class="w-20 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              class="w-20 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 font-mono "
             />
             <button
               type="button"

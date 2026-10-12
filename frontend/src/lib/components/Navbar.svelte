@@ -44,7 +44,7 @@
       <!-- Brand & Tabs -->
       <div class="flex items-center space-x-6">
         <button 
-          class="flex items-center space-x-2.5 text-left group focus:outline-none" 
+          class="flex items-center space-x-2.5 text-left group" 
           on:click={() => onTabChange('dashboard')}
         >
           <div class="w-6 h-6 rounded-md bg-zinc-100 text-zinc-950 flex items-center justify-center font-bold text-xs">
@@ -94,19 +94,19 @@
         <!-- Course Selector Button -->
         <div class="relative" data-dropdown>
           <button
-            class="h-8 inline-flex items-center space-x-1.5 px-2.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors focus:outline-none"
+            class="h-8 inline-flex items-center space-x-1.5 px-2.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors relative after:absolute after:-inset-2 after:content-['']"
             on:click={() => { showCourseDropdown = !showCourseDropdown; showNotifDropdown = false; showUserDropdown = false; }}
           >
             <GraduationCap class="w-4 h-4" />
             <span class="text-xs font-medium font-mono hidden sm:inline-block">
               {activeCourse ? activeCourse.coursecode : 'No Course'}
             </span>
-            <ChevronDown class="w-3 h-3 text-zinc-600" />
+            <ChevronDown class="w-3 h-3 text-zinc-500" />
           </button>
 
           {#if showCourseDropdown}
             <div class="absolute right-0 mt-2 w-56 rounded-md border border-zinc-800 bg-zinc-950 p-1 shadow-lg z-50">
-              <div class="px-2 py-1.5 text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Enrolled Courses</div>
+              <div class="px-2 py-1.5 text-[11px] font-mono text-zinc-500 uppercase tracking-wider">Enrolled Courses</div>
               {#each enrollments as enr}
                 <button
                   class="w-full text-left px-2.5 py-1.5 rounded text-xs flex flex-col justify-center hover:bg-zinc-900 transition-colors {selectedCourseId === enr.courseid ? 'text-zinc-100 font-medium bg-zinc-900/50' : 'text-zinc-400'}"
@@ -117,9 +117,9 @@
                 >
                   <div class="flex justify-between items-center w-full">
                     <span class="font-mono">{enr.coursecode}</span>
-                    <span class="text-[10px] text-zinc-500">{enr.rolename}</span>
+                    <span class="text-[11px] text-zinc-500">{enr.rolename}</span>
                   </div>
-                  <div class="text-[10px] truncate text-zinc-600 mt-0.5">{enr.coursetitle}</div>
+                  <div class="text-[11px] truncate text-zinc-500 mt-0.5">{enr.coursetitle}</div>
                 </button>
               {/each}
               {#if enrollments.length === 0}
@@ -133,7 +133,7 @@
         <div class="relative" data-dropdown>
           <button
             aria-label="Notifications"
-            class="h-8 w-8 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors relative"
+            class="h-8 w-8 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors relative after:absolute after:-inset-2 after:content-['']"
             on:click={() => { showNotifDropdown = !showNotifDropdown; showUserDropdown = false; showCourseDropdown = false; }}
           >
             <Bell class="w-4 h-4" />
@@ -151,17 +151,17 @@
                   {#if unreadCount > 0}
                     <button
                       on:click={onMarkAllRead}
-                      class="font-mono text-[10px] text-zinc-500 hover:text-zinc-200 transition-colors"
+                      class="font-mono text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
                     >
                       Mark all read
                     </button>
                   {:else}
-                    <span class="font-mono text-[10px] text-zinc-500">{notifications.length} total</span>
+                    <span class="font-mono text-[11px] text-zinc-500">{notifications.length} total</span>
                   {/if}
                   <button
                     on:click={onRefresh}
                     aria-label="Refresh notifications"
-                    class="text-zinc-500 hover:text-zinc-200 transition-colors"
+                    class="text-zinc-500 hover:text-zinc-200 transition-colors p-1.5 -m-1.5"
                   >
                     <RefreshCw class="w-3 h-3" />
                   </button>
@@ -177,10 +177,10 @@
                       on:click={() => onOpen(notif)}
                     >
                       <div class="pr-2">
-                        <span class="font-mono text-[10px] uppercase text-zinc-500">{notif.type?.String || 'Alert'}</span>
+                        <span class="font-mono text-[11px] uppercase text-zinc-500">{notif.type?.String || 'Alert'}</span>
                         <p class="text-xs mt-0.5 line-clamp-2">{notif.message}</p>
                         {#if notif.createdat?.Time}
-                          <span class="font-mono text-[10px] text-zinc-600">{new Date(notif.createdat.Time).toISOString().replace('T', ' ').slice(0, 16)}</span>
+                          <span class="font-mono text-[11px] text-zinc-500">{new Date(notif.createdat.Time).toISOString().replace('T', ' ').slice(0, 16)}</span>
                         {/if}
                       </div>
                       {#if notif.isread?.Bool === false}
@@ -203,12 +203,12 @@
             {#if currentUser?.photos && currentUser.photos.length > 0}
               <img src={currentUser.photos[0]} alt="avatar" class="w-4 h-4 rounded-full object-cover" />
             {:else}
-              <div class="w-4 h-4 rounded-full bg-zinc-800 text-[10px] flex items-center justify-center font-mono">
+              <div class="w-4 h-4 rounded-full bg-zinc-800 text-[11px] flex items-center justify-center font-mono">
                 {currentUser?.firstName?.[0] || 'U'}
               </div>
             {/if}
             <span class="font-medium text-xs text-zinc-200 hidden sm:inline">{currentUser?.firstName}</span>
-            <span class="text-zinc-500 text-[10px] hidden sm:inline font-mono">
+            <span class="text-zinc-500 text-[11px] hidden sm:inline font-mono">
               {currentRole || 'No Role'}
             </span>
             <ChevronDown class="w-3.5 h-3.5 text-zinc-500" />
@@ -217,7 +217,7 @@
           <!-- Dropdown -->
           {#if showUserDropdown}
             <div class="absolute right-0 mt-2 w-56 rounded-md border border-zinc-800 bg-zinc-950 p-1 shadow-lg z-50">
-              <div class="px-2.5 py-1.5 text-[10px] font-mono text-zinc-500 border-b border-zinc-800 mb-1 truncate">
+              <div class="px-2.5 py-1.5 text-[11px] font-mono text-zinc-500 border-b border-zinc-800 mb-1 truncate">
                 {currentUser?.email}
               </div>
               <button

@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { ExternalLink, Plus, Trash2 } from 'lucide-svelte';
   import ProfileCard from './ProfileCard.svelte';
+  import { backdrop } from '../dialog';
   import {
     api, nullStr, type Course, type ResourceCategory,
     type Resource
@@ -251,7 +252,7 @@
   <!-- Header (course switching lives in the navbar) -->
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
     <div>
-      <h1 class="text-xl font-semibold tracking-tight text-zinc-100">Course & Resource Center</h1>
+      <h1 class="text-2xl font-semibold tracking-tight text-zinc-100">Course & Resource Center</h1>
       <p class="text-xs text-zinc-500 mt-0.5">Categorized materials, section batches, and recursive prerequisite validation</p>
     </div>
 
@@ -279,7 +280,7 @@
         <div>
           <div class="flex items-center space-x-2">
             <span class="text-xs font-mono font-medium text-zinc-400">{cur?.coursecode}</span>
-            <span class="text-zinc-600">•</span>
+            <span class="text-zinc-500">•</span>
             <h2 class="text-sm font-semibold text-zinc-100">{cur?.title}</h2>
           </div>
           <p class="text-xs text-zinc-400 mt-1 max-w-2xl">{cur?.description?.String || 'No description.'}</p>
@@ -308,26 +309,26 @@
   <!-- ShadCN Style Tabs Bar -->
   <div class="inline-flex h-9 items-center justify-center rounded-lg bg-zinc-900/60 p-1 text-zinc-400 border border-zinc-800">
     <button
-      class="rounded-md px-3 py-1 text-xs font-medium transition-all {activeTab === 'resources' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
+      class="rounded-md px-3 py-1 text-xs font-medium transition-colors {activeTab === 'resources' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
       on:click={() => activeTab = 'resources'}
     >
       Resources ({resources.length})
     </button>
     <button
-      class="rounded-md px-3 py-1 text-xs font-medium transition-all {activeTab === 'batches' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
+      class="rounded-md px-3 py-1 text-xs font-medium transition-colors {activeTab === 'batches' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
       on:click={() => activeTab = 'batches'}
     >
       Batches ({batches.length})
     </button>
     <button
-      class="rounded-md px-3 py-1 text-xs font-medium transition-all {activeTab === 'prereqs' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
+      class="rounded-md px-3 py-1 text-xs font-medium transition-colors {activeTab === 'prereqs' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
       on:click={() => activeTab = 'prereqs'}
     >
       Prerequisites ({prerequisites.length})
     </button>
     {#if isTeacher}
       <button
-        class="rounded-md px-3 py-1 text-xs font-medium transition-all {activeTab === 'enroll' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
+        class="rounded-md px-3 py-1 text-xs font-medium transition-colors {activeTab === 'enroll' ? 'bg-zinc-800 text-zinc-100 shadow-xs' : 'hover:text-zinc-200'}"
         on:click={() => activeTab = 'enroll'}
       >
         Enrollment Enforcement
@@ -381,7 +382,7 @@
           <div class="p-4 flex items-center justify-between hover:bg-zinc-900/40 transition-colors">
               <div>
                 <div class="flex items-center space-x-2">
-                  <span class="font-mono text-[10px] text-zinc-500 uppercase px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
+                  <span class="font-mono text-[11px] text-zinc-500 uppercase px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
                     {res.categoryname || 'Document'}
                   </span>
                   <span class="text-xs font-medium text-zinc-100">{res.title}</span>
@@ -400,7 +401,7 @@
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Open document"
-                class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+                class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors relative after:absolute after:-inset-2 after:content-['']"
               >
                 <ExternalLink class="w-3.5 h-3.5" />
               </a>
@@ -408,7 +409,7 @@
                 <button
                   on:click={() => handleDeleteResource(res.resourceid)}
                   aria-label="Delete resource"
-                  class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-800 text-zinc-500 hover:text-red-300 hover:border-red-900/60 transition-colors"
+                  class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-800 text-zinc-500 hover:text-red-300 hover:border-red-900/60 transition-colors relative after:absolute after:-inset-2 after:content-['']"
                 >
                   <Trash2 class="w-3.5 h-3.5" />
                 </button>
@@ -443,12 +444,12 @@
             <div class="flex items-center justify-between text-xs">
               <span class="font-mono text-zinc-500">Batch #{b.batchid}</span>
               <div class="flex items-center space-x-1.5">
-                <span class="inline-flex items-center rounded border border-zinc-800 px-1.5 py-0.2 text-[10px] font-mono text-zinc-400">Active</span>
+                <span class="inline-flex items-center rounded border border-zinc-800 px-1.5 py-0.2 text-[11px] font-mono text-zinc-400">Active</span>
                 {#if isTeacher}
                   <button
                     on:click={() => handleDeleteBatch(b.batchid)}
                     aria-label="Delete batch"
-                    class="h-6 w-6 inline-flex items-center justify-center rounded border border-zinc-800 text-zinc-500 hover:text-red-300 hover:border-red-900/60 transition-colors"
+                    class="h-6 w-6 inline-flex items-center justify-center rounded border border-zinc-800 text-zinc-500 hover:text-red-300 hover:border-red-900/60 transition-colors relative after:absolute after:-inset-3 after:content-['']"
                   >
                     <Trash2 class="w-3 h-3" />
                   </button>
@@ -477,14 +478,14 @@
       </div>
 
       {#if isTeacher}
-        <div class="rounded-md border border-zinc-800/60 bg-zinc-950/40 p-3 flex flex-wrap items-end gap-3">
+        <div class="flex flex-wrap items-end gap-3 pt-1">
           <div class="flex-1 min-w-[10rem]">
             <label for="prereq-course" class="block text-xs font-medium text-zinc-400 mb-1">Required Course</label>
             <select
               id="prereq-course"
               bind:value={newPrereqCourseId}
               disabled={availablePrereqCourses.length === 0}
-              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:opacity-50"
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100  disabled:opacity-50"
             >
               {#each availablePrereqCourses as c}
                 <option value={c.courseid}>{c.coursecode} — {c.title}</option>
@@ -502,7 +503,7 @@
               min="0"
               max="100"
               bind:value={newPrereqMinGrade}
-              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 "
             />
           </div>
           <button
@@ -516,11 +517,11 @@
       {/if}
 
       {#if prerequisites.length === 0}
-        <div class="text-xs text-zinc-500 p-4 rounded-md border border-zinc-800/60 bg-zinc-950/40">
+        <div class="text-xs text-zinc-500 py-4">
           No prerequisites configured for this course.
         </div>
       {:else}
-        <div class="divide-y divide-zinc-800/40 border border-zinc-800/60 rounded-md overflow-hidden bg-zinc-950/40">
+        <div class="divide-y divide-zinc-800/40 border-t border-zinc-800/60">
           {#each prerequisites as p}
             <div class="p-3.5 flex items-center justify-between text-xs">
               <div>
@@ -535,7 +536,7 @@
                   <button
                     on:click={() => handleDeletePrereq(p.requiredcourseid)}
                     aria-label="Remove prerequisite"
-                    class="h-6 w-6 inline-flex items-center justify-center rounded border border-zinc-800 text-zinc-500 hover:text-red-300 hover:border-red-900/60 transition-colors"
+                    class="h-6 w-6 inline-flex items-center justify-center rounded border border-zinc-800 text-zinc-500 hover:text-red-300 hover:border-red-900/60 transition-colors relative after:absolute after:-inset-3 after:content-['']"
                   >
                     <Trash2 class="w-3 h-3" />
                   </button>
@@ -567,7 +568,7 @@
                 >
                   {e.firstname} {e.lastname}
                 </button>
-                <span class="text-zinc-500 font-mono text-[10px] ml-1">({e.email})</span>
+                <span class="text-zinc-500 font-mono text-[11px] ml-1">({e.email})</span>
               </div>
               <div class="flex items-center space-x-1.5">
                 {#if isTeacher && e.rolename === 'Student'}
@@ -575,7 +576,7 @@
                     value={e.batchid?.Valid ? e.batchid.Int32 : 0}
                     on:change={(ev) => handleUpdateEnrollmentBatch(e.enrollmentid, Number((ev.currentTarget as HTMLSelectElement).value))}
                     aria-label="Assign batch"
-                    class="rounded border border-zinc-800 bg-zinc-950 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300"
+                    class="rounded border border-zinc-800 bg-zinc-950 px-1.5 py-0.5 text-[11px] font-mono text-zinc-300"
                   >
                     <option value={0}>Unassigned</option>
                     {#each batches as b}
@@ -583,18 +584,18 @@
                     {/each}
                   </select>
                 {:else if e.batchname?.Valid}
-                  <span class="font-mono text-[10px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800">
+                  <span class="font-mono text-[11px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800">
                     {e.batchname.String}
                   </span>
                 {/if}
-                <span class="font-mono text-[10px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800">
+                <span class="font-mono text-[11px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800">
                   {e.rolename}
                 </span>
                 {#if isTeacher}
                   <button
                     on:click={() => handleUnenroll(e.userid)}
                     aria-label="Remove enrollment"
-                    class="h-6 w-6 inline-flex items-center justify-center rounded border border-zinc-800 text-zinc-500 hover:text-red-300 hover:border-red-900/60 transition-colors"
+                    class="h-6 w-6 inline-flex items-center justify-center rounded border border-zinc-800 text-zinc-500 hover:text-red-300 hover:border-red-900/60 transition-colors relative after:absolute after:-inset-3 after:content-['']"
                   >
                     <Trash2 class="w-3 h-3" />
                   </button>
@@ -617,7 +618,7 @@
           <select 
             id="enroll-student-select"
             bind:value={enrollStudentId} 
-            class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100 "
           >
             {#each allUsers as u}
               <option value={u.userId}>{u.firstName} {u.lastName} ({u.email})</option>
@@ -630,7 +631,7 @@
           <select
             id="enroll-role-select"
             bind:value={enrollRoleId}
-            class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100 "
           >
             <option value={2}>Student</option>
             <option value={3}>Teaching Assistant</option>
@@ -657,8 +658,8 @@
 
   <!-- Upload Modal -->
   {#if showUploadModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold text-zinc-100">Upload Learning Resource</h3>
         
         <div>
@@ -680,7 +681,7 @@
             id="upload-title"
             bind:value={newTitle} 
             placeholder="e.g. Relational Normalization Slides" 
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400" 
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 " 
           />
         </div>
 
@@ -690,7 +691,7 @@
             id="upload-url"
             bind:value={newFileUrl} 
             placeholder="https://..." 
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400" 
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono placeholder:text-zinc-500 " 
           />
         </div>
 
@@ -717,23 +718,23 @@
 
   <!-- New Course Modal -->
   {#if showCourseModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold text-zinc-100">Create Course</h3>
         <div>
           <label for="course-code" class="block text-xs font-medium text-zinc-400 mb-1">Course Code</label>
           <input id="course-code" bind:value={newCourseCode} placeholder="CS701"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono " />
         </div>
         <div>
           <label for="course-title" class="block text-xs font-medium text-zinc-400 mb-1">Title</label>
           <input id="course-title" bind:value={newCourseTitle} placeholder="Advanced Topics"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 " />
         </div>
         <div>
           <label for="course-desc" class="block text-xs font-medium text-zinc-400 mb-1">Description</label>
           <textarea id="course-desc" bind:value={newCourseDesc} rows="3"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400"></textarea>
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 "></textarea>
         </div>
         <div class="flex justify-end space-x-2 pt-2 border-t border-zinc-800">
           <button on:click={() => showCourseModal = false} class="px-3 py-1.5 text-xs rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100">Cancel</button>
@@ -745,13 +746,13 @@
 
   <!-- New Batch Modal -->
   {#if showBatchModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold text-zinc-100">Create Batch</h3>
         <div>
           <label for="batch-name" class="block text-xs font-medium text-zinc-400 mb-1">Batch Name</label>
           <input id="batch-name" bind:value={newBatchName} placeholder="Batch C - CS101"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 " />
         </div>
         <div class="flex justify-end space-x-2 pt-2 border-t border-zinc-800">
           <button on:click={() => showBatchModal = false} class="px-3 py-1.5 text-xs rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100">Cancel</button>
@@ -763,13 +764,13 @@
 
   <!-- New Category Modal -->
   {#if showCategoryModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold text-zinc-100">Create Category</h3>
         <div>
           <label for="category-name" class="block text-xs font-medium text-zinc-400 mb-1">Category Name</label>
           <input id="category-name" bind:value={newCategoryName} placeholder="Lab Manuals"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 " />
         </div>
         <div class="flex justify-end space-x-2 pt-2 border-t border-zinc-800">
           <button on:click={() => showCategoryModal = false} class="px-3 py-1.5 text-xs rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100">Cancel</button>

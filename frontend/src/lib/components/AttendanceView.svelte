@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api, type AttendanceSummary, type User } from '../api';
+  import { backdrop } from '../dialog';
 
   export let currentUser: User;
   export let selectedCourseId: number;
@@ -121,7 +122,7 @@
   <!-- Header -->
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
     <div>
-      <h1 class="text-xl font-semibold tracking-tight text-zinc-100">Timetable & Attendance</h1>
+      <h1 class="text-2xl font-semibold tracking-tight text-zinc-100">Timetable & Attendance</h1>
       <p class="text-xs text-zinc-500 mt-0.5">{isStudent ? 'Your attendance record' : 'Manage and track student class attendance'}</p>
     </div>
 
@@ -223,7 +224,7 @@
                 <td class="p-4 font-mono text-zinc-400">{s.startTime} - {s.endTime}</td>
                 <td class="p-4 font-mono text-zinc-500">{s.roomLocation || 'Online'}</td>
                 <td class="p-4 text-right">
-                  <span class="inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-mono {s.attendanceStatus === 'Present' ? 'border-zinc-700 bg-zinc-800/40 text-zinc-200' : s.attendanceStatus === 'Absent' ? 'border-red-900/60 bg-red-950/30 text-red-400' : 'border-zinc-800 text-zinc-500'}">
+                  <span class="inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-mono {s.attendanceStatus === 'Present' ? 'border-zinc-700 bg-zinc-800/40 text-zinc-200' : s.attendanceStatus === 'Absent' ? 'border-red-900/60 bg-red-950/30 text-red-400' : 'border-zinc-800 text-zinc-500'}">
                     {s.attendanceStatus}
                   </span>
                 </td>
@@ -280,7 +281,7 @@
         <div class="grid grid-cols-3 gap-1.5">
           {#each ['Present', 'Absent', 'Excused'] as st}
             <button
-              class="py-1.5 text-xs font-medium rounded-md border transition-colors {selectedStatus === st ? 'bg-zinc-100 text-zinc-950 border-zinc-100' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-200'}"
+              class="py-2 text-xs font-medium rounded-md border transition-colors {selectedStatus === st ? 'bg-zinc-100 text-zinc-950 border-zinc-100' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-200'}"
               on:click={() => selectedStatus = st}
             >
               {st}
@@ -308,14 +309,14 @@
 
   <!-- New Session Modal -->
   {#if showSessionModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold text-zinc-100">Schedule Class Session</h3>
 
         <div>
           <label for="session-batch" class="block text-xs font-medium text-zinc-400 mb-1">Batch</label>
           <select id="session-batch" bind:value={newSessionBatchId}
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 "
           >
             {#each batches as b}
               <option value={b.batchid}>{b.batchname}</option>
@@ -327,19 +328,19 @@
           <div>
             <label for="session-start" class="block text-xs font-medium text-zinc-400 mb-1">Start</label>
             <input id="session-start" type="datetime-local" bind:value={newSessionStart}
-              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 " />
           </div>
           <div>
             <label for="session-end" class="block text-xs font-medium text-zinc-400 mb-1">End</label>
             <input id="session-end" type="datetime-local" bind:value={newSessionEnd}
-              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 " />
           </div>
         </div>
 
         <div>
           <label for="session-room" class="block text-xs font-medium text-zinc-400 mb-1">Room</label>
           <input id="session-room" bind:value={newSessionRoom} placeholder="Room 301"
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" />
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 " />
         </div>
 
         <div class="flex justify-end space-x-2 pt-2 border-t border-zinc-800">
@@ -352,8 +353,8 @@
 
   <!-- Bulk Attendance Modal -->
   {#if showBulkModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={closeModals}>
-      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={closeModals}>
+      <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold text-zinc-100">Bulk Attendance</h3>
         <p class="text-xs text-zinc-500">Apply one status to all {students.length} enrolled students.</p>
 
@@ -362,7 +363,7 @@
           <select
             id="bulk-session-select"
             bind:value={selectedSessionId}
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 "
           >
             {#each sessions as ses}
               <option value={ses.sessionid}>#{ses.sessionid} - {ses.batchname} ({new Date(ses.starttime).toISOString().split('T')[0]})</option>
@@ -375,7 +376,7 @@
           <div class="grid grid-cols-3 gap-1.5">
             {#each ['Present', 'Absent', 'Excused'] as st}
               <button
-                class="py-1.5 text-xs font-medium rounded-md border transition-colors {bulkStatus === st ? 'bg-zinc-100 text-zinc-950 border-zinc-100' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-200'}"
+                class="py-2 text-xs font-medium rounded-md border transition-colors {bulkStatus === st ? 'bg-zinc-100 text-zinc-950 border-zinc-100' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-200'}"
                 on:click={() => bulkStatus = st}
               >
                 {st}
