@@ -194,6 +194,15 @@
   let gbEditId = 0;
   let gbEditVal = '';
 
+  // Ledger foot: per-assignment class average + graded count.
+  $: gbColStats = assignments.map((a) => {
+    const vs = submissionReport
+      .filter((r) => r.assignmentId === a.assignmentid)
+      .map((r) => parseFloat(r.effectiveScore || r.score || 'NaN'))
+      .filter((n) => !isNaN(n));
+    return vs.length ? `${(vs.reduce((s, n) => s + n, 0) / vs.length).toFixed(1)} · n=${vs.length}` : '—';
+  });
+
   function startGbEdit(rep: SubmissionReportItem) {
     gbEditId = rep.submissionId;
     gbEditVal = rep.effectiveScore || rep.score || '';
@@ -787,7 +796,7 @@
       {/each}
       {#if assignments.length === 0}
         <div class="md:col-span-2 rounded-lg border border-zinc-800/60 bg-zinc-950/40 p-8 text-center text-xs text-zinc-500">
-          No assignments for this course yet.
+          No assignments here yet. The instructor hasn't posted any.
         </div>
       {/if}
       </div>
@@ -1093,9 +1102,20 @@
               </tr>
             {/each}
             {#if gbStudents.length === 0}
-              <tr><td colspan={assignments.length + 2} class="p-6 text-center text-zinc-500">No submissions yet.</td></tr>
+              <tr><td colspan={assignments.length + 2} class="p-6 text-center text-zinc-500">No submissions yet — the grid fills itself.</td></tr>
             {/if}
           </tbody>
+          {#if gbStudents.length > 0}
+            <tfoot>
+              <tr class="border-t border-zinc-700 text-zinc-400">
+                <td class="p-4 font-mono text-[11px] uppercase tracking-widest sticky left-0 bg-zinc-950">Class avg</td>
+                {#each gbColStats as s}
+                  <td class="p-2 font-mono text-[11px] text-center whitespace-nowrap">{s}</td>
+                {/each}
+                <td></td>
+              </tr>
+            </tfoot>
+          {/if}
         </table>
       </div>
     </div>

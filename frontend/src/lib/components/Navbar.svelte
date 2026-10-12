@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Bell, ChevronDown, GraduationCap, LogOut, RefreshCw, User } from 'lucide-svelte';
+  import { Bell, ChevronDown, LogOut, RefreshCw, User } from 'lucide-svelte';
   import type { User as UserType, NotificationItem } from '../api';
   import { timeAgo } from '../time';
+  import { identCells } from '../ident';
 
   export let currentUser: UserType | null;
   export let enrollments: any[] = [];
@@ -116,7 +117,11 @@
             class="h-8 inline-flex items-center space-x-1.5 px-2.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors relative after:absolute after:-inset-2 after:content-['']"
             on:click={() => { showCourseDropdown = !showCourseDropdown; showNotifDropdown = false; showUserDropdown = false; }}
           >
-            <GraduationCap class="w-4 h-4" />
+            <svg width="14" height="14" viewBox="0 0 5 5" aria-hidden="true" class="shrink-0">
+              {#each identCells(activeCourse?.coursecode || '?') as on, i}
+                <rect x={i % 5} y={Math.floor(i / 5)} width="1" height="1" fill={on ? 'currentColor' : 'none'} />
+              {/each}
+            </svg>
             <span class="text-xs font-medium font-mono hidden sm:inline-block">
               {activeCourse ? activeCourse.coursecode : 'No Course'}
             </span>
@@ -219,7 +224,7 @@
               </div>
               <div class="max-h-64 overflow-y-auto divide-y divide-zinc-800/40">
                 {#if visibleNotifs.length === 0}
-                  <div class="py-6 text-center text-xs text-zinc-500">No notifications</div>
+                  <div class="py-6 text-center text-xs text-zinc-500">All caught up.</div>
                 {:else}
                   {#each visibleNotifs as notif}
                     <button

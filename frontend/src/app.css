@@ -23,6 +23,8 @@
   --color-ink: var(--text);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
+  /* Second typeface: serif display, headings only (DESIGN.md rule 3). */
+  --font-display: "Newsreader", Georgia, "Times New Roman", serif;
 }
 
 @layer base {

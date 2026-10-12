@@ -282,10 +282,10 @@
       <form on:submit|preventDefault={handleLogin} class="w-full max-w-sm rounded-lg border border-zinc-800 bg-zinc-900/30 p-6 space-y-4">
         <div class="flex items-center space-x-2.5">
           <div class="w-7 h-7 rounded-md bg-zinc-100 text-zinc-950 flex items-center justify-center font-bold text-sm">M</div>
-          <div>
-            <div class="text-sm font-semibold tracking-tight text-zinc-100">moodle++</div>
-            <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Sign in</div>
-          </div>
+        <div>
+          <div class="font-display text-2xl font-semibold tracking-tight text-zinc-100">moodle++</div>
+          <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mt-1">Sign in</div>
+        </div>
         </div>
 
         <div>
@@ -311,12 +311,20 @@
           {loggingIn ? 'Signing in...' : 'Sign in'}
         </button>
 
-        <p class="text-[10px] text-zinc-500 leading-relaxed">
-          Demo accounts (any seeded email, password <span class="font-mono text-zinc-400">password123</span>):
-          <span class="font-mono text-zinc-400">alice.teacher@university.edu</span>,
-          <span class="font-mono text-zinc-400">bob.student@university.edu</span>,
-          <span class="font-mono text-zinc-400">dave.ta@university.edu</span>
-        </p>
+        <div class="text-[10px] text-zinc-500 leading-relaxed">
+          <span class="font-mono uppercase tracking-widest">Demo accounts · password password123</span>
+          <div class="mt-1.5 flex flex-wrap gap-1.5">
+            {#each ['alice.teacher@university.edu', 'bob.student@university.edu', 'dave.ta@university.edu'] as demo}
+              <button
+                type="button"
+                on:click={() => { loginEmail = demo; loginPassword = 'password123'; }}
+                class="rounded border border-zinc-800 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400 hover:text-zinc-100 hover:border-zinc-600 transition-colors"
+              >
+                {demo}
+              </button>
+            {/each}
+          </div>
+        </div>
       </form>
     </div>
   {:else}

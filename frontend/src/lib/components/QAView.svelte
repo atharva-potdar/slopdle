@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { Plus, ArrowUp, Check } from 'lucide-svelte';
+  import { Plus, ArrowUp } from 'lucide-svelte';
   import ProfileCard from './ProfileCard.svelte';
   import { api, type Question, type Answer, type User } from '../api';
   import { backdrop } from '../dialog';
+  import { timeAgo } from '../time';
 
   export let currentUser: User;
   export let selectedCourseId: number;
@@ -179,7 +180,7 @@
               >
                 {q.firstname} {q.lastname}
               </span>
-              <span class="font-mono">{q.answercount} answers</span>
+              <span class="font-mono">{q.answercount} answers · {timeAgo(q.createdat)}</span>
             </div>
           </button>
         {/each}
@@ -219,7 +220,7 @@
           </div>
 
           {#each answers as ans}
-            <div class="border-t border-zinc-800/60 py-4 space-y-2.5 first:border-t-0 first:pt-0">
+            <div class="border-t border-zinc-800/60 py-4 space-y-2.5 first:border-t-0 first:pt-0 {ans.isofficialanswer?.Bool ? 'border-l-2 border-l-zinc-100 pl-4' : ''}">
               
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-2 text-xs">
@@ -229,6 +230,7 @@
                   >
                     {ans.firstname} {ans.lastname}
                   </button>
+                  <span class="font-mono text-[11px] text-zinc-600">{timeAgo(ans.createdat)}</span>
                   {#if ans.userrole?.String}
                     <span class="font-mono text-[11px] text-zinc-500 border border-zinc-800 px-1 py-0.2 rounded">
                       {ans.userrole.String}
@@ -237,9 +239,8 @@
                 </div>
 
                 {#if ans.isofficialanswer?.Bool}
-                  <span class="inline-flex items-center space-x-1 rounded border border-zinc-700 bg-zinc-800/40 px-1.5 py-0.5 text-[11px] font-mono text-zinc-200">
-                    <Check class="w-3 h-3 text-zinc-300" />
-                    <span>VERIFIED ANSWER</span>
+                  <span class="inline-flex items-center rounded border border-zinc-500 px-1.5 py-0.5 text-[11px] font-mono text-zinc-100">
+                    OFFICIAL
                   </span>
                 {/if}
               </div>

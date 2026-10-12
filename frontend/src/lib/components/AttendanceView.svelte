@@ -249,6 +249,22 @@
 
   </div>
 
+  <!-- Session dot-matrix: one dot per session, oldest → newest.
+       Filled = present, red ring = absent, hollow = excused/unmarked. -->
+  {#if attendance && attendance.sessions.length > 0}
+    <div class="rounded-lg border border-zinc-800 bg-zinc-900/20 p-4">
+      <div class="font-mono text-[11px] uppercase tracking-widest text-zinc-500 mb-2.5">Session record</div>
+      <div class="flex flex-wrap gap-1.5">
+        {#each attendance.sessions as s}
+          <span
+            title={`#${s.sessionId} · ${fmtDate(s.startTime)} · ${s.attendanceStatus || 'unmarked'}`}
+            class="w-3 h-3 rounded-full border {s.attendanceStatus === 'Present' ? 'bg-zinc-100 border-zinc-100' : s.attendanceStatus === 'Absent' ? 'border-red-400' : 'border-zinc-700'}"
+          ></span>
+        {/each}
+      </div>
+    </div>
+  {/if}
+
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
     <!-- Schedule Table -->

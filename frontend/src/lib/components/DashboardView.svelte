@@ -2,6 +2,7 @@
   import { ArrowUpRight } from 'lucide-svelte';
   import { api, type User, type AttendanceSummary, type StudentGradeItem, type PendingStudent, type UserSubmission } from '../api';
   import { parseDate, dayKey, fmtDate } from '../time';
+  import { identCells } from '../ident';
 
   export let currentUser: User;
   export let selectedCourseId: number;
@@ -210,8 +211,15 @@
   <!-- Course masthead: the hero names the course, not the user.
        Person identity lives in the navbar account menu (no duplication). -->
   <div class="border-b border-line pb-5">
-    <div class="font-mono text-[11px] uppercase tracking-widest text-faint">
-      {activeCourse?.coursecode || 'Course'}
+    <div class="flex items-center gap-2.5">
+      <svg width="22" height="22" viewBox="0 0 5 5" aria-hidden="true" class="text-muted shrink-0">
+        {#each identCells(activeCourse?.coursecode || '?') as on, i}
+          <rect x={i % 5} y={Math.floor(i / 5)} width="1" height="1" fill={on ? 'currentColor' : 'none'} />
+        {/each}
+      </svg>
+      <div class="font-mono text-[11px] uppercase tracking-widest text-faint">
+        {activeCourse?.coursecode || 'Course'}
+      </div>
     </div>
     <h1 class="font-display text-3xl font-semibold tracking-tight text-ink mt-1">
       {activeCourse?.coursetitle || 'Dashboard'}
@@ -418,7 +426,7 @@
             {/each}
             {#if dashboardRows.length === 0}
               <tr>
-                <td colspan="5" class="p-6 text-center text-faint">All course submissions are up to date.</td>
+                <td colspan="5" class="p-6 text-center text-faint">Nothing due. Enjoy the silence.</td>
               </tr>
             {/if}
           </tbody>

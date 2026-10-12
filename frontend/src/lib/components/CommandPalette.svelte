@@ -87,6 +87,18 @@
     .filter((e) => !q || e.label.toLowerCase().includes(q));
   $: results = matched.slice(0, 12);
   $: hiddenCount = matched.length - results.length;
+  // Terminal grammar: group rows under mono labels.
+  $: groups = (() => {
+    const order = ['Tab', 'Course', 'Assignment', 'Q&A thread', 'Resource'];
+    const buckets = new Map<string, Entry[]>();
+    results.forEach((r) => {
+      const k = r.hint.startsWith('Switch course') ? 'Course' : r.hint.startsWith('Resource') ? 'Resource' : r.hint;
+      if (!buckets.has(k)) buckets.set(k, []);
+      buckets.get(k)!.push(r);
+    });
+    return order.filter((k) => buckets.has(k)).map((k) => ({ label: k, rows: buckets.get(k)! }));
+  })();
+  $: flatIndex = new Map(results.map((r, i) => [r, i]));
   $: if (index >= results.length) index = 0;
 
   function pick(e: Entry) {
@@ -111,26 +123,34 @@
 {#if open}
   <div class="fixed inset-0 z-[70] bg-black/80 flex items-start justify-center pt-24 px-4" use:backdrop={close}>
     <div class="bg-zinc-950 border border-zinc-800 rounded-lg w-full max-w-md shadow-xl overflow-hidden">
-      <input
-        bind:this={inputEl}
-        bind:value={query}
-        on:keydown={onKey}
-        placeholder="Type a course, assignment, question… (Esc to close)"
-        class="w-full bg-transparent px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none border-b border-zinc-800"
-      />
+      <div class="flex items-center border-b border-zinc-800">
+        <span class="pl-4 font-mono text-sm text-zinc-500 select-none" aria-hidden="true">›</span>
+        <input
+          bind:this={inputEl}
+          bind:value={query}
+          on:keydown={onKey}
+          placeholder="course, assignment, question…"
+          aria-label="Command palette"
+          class="w-full bg-transparent px-2 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none"
+        />
+      </div>
       <div class="max-h-72 overflow-y-auto p-1">
-        {#each results as r, i}
-          <button
-            on:click={() => pick(r)}
-            on:mouseenter={() => (index = i)}
-            class="w-full text-left px-3 py-2 rounded text-xs flex items-center justify-between gap-2 {i === index ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400'}"
-          >
-            <span class="truncate">{r.label}</span>
-            <span class="font-mono text-[11px] text-zinc-500 shrink-0">{r.hint}</span>
-          </button>
+        {#each groups as g}
+          <div class="px-3 pt-2 pb-0.5 font-mono text-[10px] uppercase tracking-widest text-zinc-600">{g.label}</div>
+          {#each g.rows as r}
+            {@const i = flatIndex.get(r) ?? 0}
+            <button
+              on:click={() => pick(r)}
+              on:mouseenter={() => (index = i)}
+              class="w-full text-left px-3 py-2 rounded text-xs flex items-center justify-between gap-2 {i === index ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400'}"
+            >
+              <span class="truncate">{r.label}</span>
+              <span class="font-mono text-[11px] text-zinc-500 shrink-0">{r.hint}</span>
+            </button>
+          {/each}
         {/each}
         {#if results.length === 0}
-          <div class="px-3 py-4 text-center text-xs text-zinc-500">No matches</div>
+          <div class="px-3 py-4 text-center text-xs text-zinc-500">Nothing matches. Keep typing.</div>
         {:else if hiddenCount > 0}
           <div class="px-3 py-1.5 text-center font-mono text-[11px] text-zinc-600">+{hiddenCount} more — keep typing</div>
         {/if}
