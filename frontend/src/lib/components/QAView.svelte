@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Plus, ArrowUp, Check } from 'lucide-svelte';
+  import ProfileCard from './ProfileCard.svelte';
   import { api, type Question, type Answer, type User } from '../api';
 
   export let currentUser: User;
@@ -11,6 +12,7 @@
   let selectedQuestionId: number | null = null;
   let activeQuestion: Question | null = null;
   let answers: Answer[] = [];
+  let profileUserId: number | null = null;
 
   // Form states
   let showAskModal = false;
@@ -25,7 +27,15 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') showAskModal = false;
+    if (e.key === 'Escape') {
+      showAskModal = false;
+      profileUserId = null;
+    }
+  }
+
+  function openProfile(e: Event, userId: number) {
+    e.stopPropagation();
+    profileUserId = userId;
   }
 
   async function loadQuestions() {
@@ -141,7 +151,15 @@
             <p class="text-[11px] text-zinc-400 mt-1 line-clamp-2">{q.body}</p>
 
             <div class="mt-3 pt-2.5 border-t border-zinc-800/60 flex items-center justify-between text-[11px] text-zinc-500">
-              <span>{q.firstname} {q.lastname}</span>
+              <span
+                role="button"
+                tabindex="0"
+                class="hover:text-zinc-100 hover:underline underline-offset-2 cursor-pointer"
+                on:click={(e) => openProfile(e, q.userid)}
+                on:keydown={(e) => { if (e.key === 'Enter') profileUserId = q.userid; }}
+              >
+                {q.firstname} {q.lastname}
+              </span>
               <span class="font-mono">{q.answercount} answers</span>
             </div>
           </button>
@@ -165,7 +183,13 @@
           <p class="text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed">{activeQuestion.body}</p>
 
           <div class="pt-3 border-t border-zinc-800/60 text-[11px] text-zinc-500">
-            Asked by <span class="text-zinc-300 font-medium">{activeQuestion.firstname} {activeQuestion.lastname}</span>
+            Asked by
+            <button
+              class="text-zinc-300 font-medium hover:text-zinc-100 hover:underline underline-offset-2"
+              on:click={() => { if (activeQuestion) profileUserId = activeQuestion.userid; }}
+            >
+              {activeQuestion.firstname} {activeQuestion.lastname}
+            </button>
           </div>
         </div>
 
@@ -180,7 +204,12 @@
               
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-2 text-xs">
-                  <span class="font-medium text-zinc-200">{ans.firstname} {ans.lastname}</span>
+                  <button
+                    class="font-medium text-zinc-200 hover:text-zinc-100 hover:underline underline-offset-2"
+                    on:click={() => { profileUserId = ans.userid; }}
+                  >
+                    {ans.firstname} {ans.lastname}
+                  </button>
                   {#if ans.userrole?.String}
                     <span class="font-mono text-[10px] text-zinc-500 border border-zinc-800 px-1 py-0.2 rounded">
                       {ans.userrole.String}
@@ -254,8 +283,7 @@
   </div>
 
   <!-- Ask Question Modal -->
-  {#if showAskModal}
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={() => showAskModal = false}>
+  {#if showAskModal}    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" on:click={() => showAskModal = false}>
       <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl" on:click|stopPropagation>
         <h3 class="text-sm font-semibold text-zinc-100">Ask a Question</h3>
         
@@ -287,5 +315,7 @@
       </div>
     </div>
   {/if}
+
+  <ProfileCard userId={profileUserId} onClose={() => (profileUserId = null)} />
 
 </div>

@@ -56,17 +56,19 @@ func (q *Queries) CountAssignmentVisibleToStudent(ctx context.Context, arg Count
 }
 
 const createAssignment = `-- name: CreateAssignment :execresult
-INSERT INTO Assignment (Title, Description, Deadline, FormatRequired, CourseID, RubricID)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO Assignment (Title, Description, Deadline, FormatRequired, CourseID, RubricID, LatePenaltyPerDay, LatePenaltyEnabled)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type CreateAssignmentParams struct {
-	Title          string         `json:"title"`
-	Description    sql.NullString `json:"description"`
-	Deadline       time.Time      `json:"deadline"`
-	Formatrequired sql.NullString `json:"formatrequired"`
-	Courseid       int32          `json:"courseid"`
-	Rubricid       sql.NullInt32  `json:"rubricid"`
+	Title              string         `json:"title"`
+	Description        sql.NullString `json:"description"`
+	Deadline           time.Time      `json:"deadline"`
+	Formatrequired     sql.NullString `json:"formatrequired"`
+	Courseid           int32          `json:"courseid"`
+	Rubricid           sql.NullInt32  `json:"rubricid"`
+	Latepenaltyperday  string         `json:"latepenaltyperday"`
+	Latepenaltyenabled bool           `json:"latepenaltyenabled"`
 }
 
 func (q *Queries) CreateAssignment(ctx context.Context, arg CreateAssignmentParams) (sql.Result, error) {
@@ -77,6 +79,8 @@ func (q *Queries) CreateAssignment(ctx context.Context, arg CreateAssignmentPara
 		arg.Formatrequired,
 		arg.Courseid,
 		arg.Rubricid,
+		arg.Latepenaltyperday,
+		arg.Latepenaltyenabled,
 	)
 }
 
@@ -100,6 +104,7 @@ func (q *Queries) DeleteAssignmentBatches(ctx context.Context, assignmentid int3
 
 const getAssignmentByID = `-- name: GetAssignmentByID :one
 SELECT a.AssignmentID, a.Title, a.Description, a.Deadline, a.FormatRequired, a.CourseID, a.RubricID,
+       a.LatePenaltyPerDay, a.LatePenaltyEnabled,
        r.Title AS RubricTitle, r.Department AS RubricDepartment, r.Description AS RubricDescription,
        c.CourseCode, c.Title AS CourseTitle,
        (SELECT GROUP_CONCAT(ab.BatchID ORDER BY ab.BatchID)
@@ -114,20 +119,22 @@ WHERE a.AssignmentID = ? LIMIT 1
 `
 
 type GetAssignmentByIDRow struct {
-	Assignmentid      int32          `json:"assignmentid"`
-	Title             string         `json:"title"`
-	Description       sql.NullString `json:"description"`
-	Deadline          time.Time      `json:"deadline"`
-	Formatrequired    sql.NullString `json:"formatrequired"`
-	Courseid          int32          `json:"courseid"`
-	Rubricid          sql.NullInt32  `json:"rubricid"`
-	Rubrictitle       sql.NullString `json:"rubrictitle"`
-	Rubricdepartment  sql.NullString `json:"rubricdepartment"`
-	Rubricdescription sql.NullString `json:"rubricdescription"`
-	Coursecode        string         `json:"coursecode"`
-	Coursetitle       string         `json:"coursetitle"`
-	Batchids          sql.NullString `json:"batchids"`
-	Batchnames        sql.NullString `json:"batchnames"`
+	Assignmentid       int32          `json:"assignmentid"`
+	Title              string         `json:"title"`
+	Description        sql.NullString `json:"description"`
+	Deadline           time.Time      `json:"deadline"`
+	Formatrequired     sql.NullString `json:"formatrequired"`
+	Courseid           int32          `json:"courseid"`
+	Rubricid           sql.NullInt32  `json:"rubricid"`
+	Latepenaltyperday  string         `json:"latepenaltyperday"`
+	Latepenaltyenabled bool           `json:"latepenaltyenabled"`
+	Rubrictitle        sql.NullString `json:"rubrictitle"`
+	Rubricdepartment   sql.NullString `json:"rubricdepartment"`
+	Rubricdescription  sql.NullString `json:"rubricdescription"`
+	Coursecode         string         `json:"coursecode"`
+	Coursetitle        string         `json:"coursetitle"`
+	Batchids           sql.NullString `json:"batchids"`
+	Batchnames         sql.NullString `json:"batchnames"`
 }
 
 func (q *Queries) GetAssignmentByID(ctx context.Context, assignmentid int32) (GetAssignmentByIDRow, error) {
@@ -141,6 +148,8 @@ func (q *Queries) GetAssignmentByID(ctx context.Context, assignmentid int32) (Ge
 		&i.Formatrequired,
 		&i.Courseid,
 		&i.Rubricid,
+		&i.Latepenaltyperday,
+		&i.Latepenaltyenabled,
 		&i.Rubrictitle,
 		&i.Rubricdepartment,
 		&i.Rubricdescription,
@@ -386,6 +395,7 @@ func (q *Queries) ListAssignmentBatches(ctx context.Context, assignmentid int32)
 
 const listAssignmentsByCourse = `-- name: ListAssignmentsByCourse :many
 SELECT a.AssignmentID, a.Title, a.Description, a.Deadline, a.FormatRequired, a.CourseID, a.RubricID,
+       a.LatePenaltyPerDay, a.LatePenaltyEnabled,
        r.Title AS RubricTitle, r.Department AS RubricDepartment,
        (SELECT GROUP_CONCAT(ab.BatchID ORDER BY ab.BatchID)
           FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID) AS BatchIDs,
@@ -399,17 +409,19 @@ ORDER BY a.Deadline ASC
 `
 
 type ListAssignmentsByCourseRow struct {
-	Assignmentid     int32          `json:"assignmentid"`
-	Title            string         `json:"title"`
-	Description      sql.NullString `json:"description"`
-	Deadline         time.Time      `json:"deadline"`
-	Formatrequired   sql.NullString `json:"formatrequired"`
-	Courseid         int32          `json:"courseid"`
-	Rubricid         sql.NullInt32  `json:"rubricid"`
-	Rubrictitle      sql.NullString `json:"rubrictitle"`
-	Rubricdepartment sql.NullString `json:"rubricdepartment"`
-	Batchids         sql.NullString `json:"batchids"`
-	Batchnames       sql.NullString `json:"batchnames"`
+	Assignmentid       int32          `json:"assignmentid"`
+	Title              string         `json:"title"`
+	Description        sql.NullString `json:"description"`
+	Deadline           time.Time      `json:"deadline"`
+	Formatrequired     sql.NullString `json:"formatrequired"`
+	Courseid           int32          `json:"courseid"`
+	Rubricid           sql.NullInt32  `json:"rubricid"`
+	Latepenaltyperday  string         `json:"latepenaltyperday"`
+	Latepenaltyenabled bool           `json:"latepenaltyenabled"`
+	Rubrictitle        sql.NullString `json:"rubrictitle"`
+	Rubricdepartment   sql.NullString `json:"rubricdepartment"`
+	Batchids           sql.NullString `json:"batchids"`
+	Batchnames         sql.NullString `json:"batchnames"`
 }
 
 func (q *Queries) ListAssignmentsByCourse(ctx context.Context, courseid int32) ([]ListAssignmentsByCourseRow, error) {
@@ -429,6 +441,8 @@ func (q *Queries) ListAssignmentsByCourse(ctx context.Context, courseid int32) (
 			&i.Formatrequired,
 			&i.Courseid,
 			&i.Rubricid,
+			&i.Latepenaltyperday,
+			&i.Latepenaltyenabled,
 			&i.Rubrictitle,
 			&i.Rubricdepartment,
 			&i.Batchids,
@@ -449,6 +463,7 @@ func (q *Queries) ListAssignmentsByCourse(ctx context.Context, courseid int32) (
 
 const listAssignmentsByCourseForStudent = `-- name: ListAssignmentsByCourseForStudent :many
 SELECT a.AssignmentID, a.Title, a.Description, a.Deadline, a.FormatRequired, a.CourseID, a.RubricID,
+       a.LatePenaltyPerDay, a.LatePenaltyEnabled,
        r.Title AS RubricTitle, r.Department AS RubricDepartment,
        (SELECT GROUP_CONCAT(ab.BatchID ORDER BY ab.BatchID)
           FROM AssignmentBatch ab WHERE ab.AssignmentID = a.AssignmentID) AS BatchIDs,
@@ -475,17 +490,19 @@ type ListAssignmentsByCourseForStudentParams struct {
 }
 
 type ListAssignmentsByCourseForStudentRow struct {
-	Assignmentid     int32          `json:"assignmentid"`
-	Title            string         `json:"title"`
-	Description      sql.NullString `json:"description"`
-	Deadline         time.Time      `json:"deadline"`
-	Formatrequired   sql.NullString `json:"formatrequired"`
-	Courseid         int32          `json:"courseid"`
-	Rubricid         sql.NullInt32  `json:"rubricid"`
-	Rubrictitle      sql.NullString `json:"rubrictitle"`
-	Rubricdepartment sql.NullString `json:"rubricdepartment"`
-	Batchids         sql.NullString `json:"batchids"`
-	Batchnames       sql.NullString `json:"batchnames"`
+	Assignmentid       int32          `json:"assignmentid"`
+	Title              string         `json:"title"`
+	Description        sql.NullString `json:"description"`
+	Deadline           time.Time      `json:"deadline"`
+	Formatrequired     sql.NullString `json:"formatrequired"`
+	Courseid           int32          `json:"courseid"`
+	Rubricid           sql.NullInt32  `json:"rubricid"`
+	Latepenaltyperday  string         `json:"latepenaltyperday"`
+	Latepenaltyenabled bool           `json:"latepenaltyenabled"`
+	Rubrictitle        sql.NullString `json:"rubrictitle"`
+	Rubricdepartment   sql.NullString `json:"rubricdepartment"`
+	Batchids           sql.NullString `json:"batchids"`
+	Batchnames         sql.NullString `json:"batchnames"`
 }
 
 // Course-wide assignments (no batch rows) plus assignments targeted at the
@@ -507,6 +524,8 @@ func (q *Queries) ListAssignmentsByCourseForStudent(ctx context.Context, arg Lis
 			&i.Formatrequired,
 			&i.Courseid,
 			&i.Rubricid,
+			&i.Latepenaltyperday,
+			&i.Latepenaltyenabled,
 			&i.Rubrictitle,
 			&i.Rubricdepartment,
 			&i.Batchids,
@@ -527,17 +546,19 @@ func (q *Queries) ListAssignmentsByCourseForStudent(ctx context.Context, arg Lis
 
 const updateAssignment = `-- name: UpdateAssignment :exec
 UPDATE Assignment
-SET Title = ?, Description = ?, Deadline = ?, FormatRequired = ?, RubricID = ?
+SET Title = ?, Description = ?, Deadline = ?, FormatRequired = ?, RubricID = ?, LatePenaltyPerDay = ?, LatePenaltyEnabled = ?
 WHERE AssignmentID = ?
 `
 
 type UpdateAssignmentParams struct {
-	Title          string         `json:"title"`
-	Description    sql.NullString `json:"description"`
-	Deadline       time.Time      `json:"deadline"`
-	Formatrequired sql.NullString `json:"formatrequired"`
-	Rubricid       sql.NullInt32  `json:"rubricid"`
-	Assignmentid   int32          `json:"assignmentid"`
+	Title              string         `json:"title"`
+	Description        sql.NullString `json:"description"`
+	Deadline           time.Time      `json:"deadline"`
+	Formatrequired     sql.NullString `json:"formatrequired"`
+	Rubricid           sql.NullInt32  `json:"rubricid"`
+	Latepenaltyperday  string         `json:"latepenaltyperday"`
+	Latepenaltyenabled bool           `json:"latepenaltyenabled"`
+	Assignmentid       int32          `json:"assignmentid"`
 }
 
 func (q *Queries) UpdateAssignment(ctx context.Context, arg UpdateAssignmentParams) error {
@@ -547,6 +568,8 @@ func (q *Queries) UpdateAssignment(ctx context.Context, arg UpdateAssignmentPara
 		arg.Deadline,
 		arg.Formatrequired,
 		arg.Rubricid,
+		arg.Latepenaltyperday,
+		arg.Latepenaltyenabled,
 		arg.Assignmentid,
 	)
 	return err

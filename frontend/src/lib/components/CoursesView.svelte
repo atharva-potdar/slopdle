@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { ExternalLink, Plus, Trash2 } from 'lucide-svelte';
+  import ProfileCard from './ProfileCard.svelte';
   import { 
     api, type Course, type ResourceCategory, 
     type Resource
@@ -10,8 +11,8 @@
   export let currentRole: string;
 
   let courses: Course[] = [];
-  let localCourseId: number = 0;
-  let categories: ResourceCategory[] = [];
+  let allCourses: Course[] = [];
+  let localCourseId: number = 0;  let categories: ResourceCategory[] = [];
   let resources: Resource[] = [];
   let batches: any[] = [];
   let prerequisites: any[] = [];
@@ -20,6 +21,7 @@
   let activeTab: 'resources' | 'batches' | 'prereqs' | 'enroll' = 'resources';
   let selectedCategoryId: number | null = null;
   let loadError = '';
+  let profileUserId: number | null = null;
 
   // New Resource Form
   let showUploadModal = false;
@@ -56,7 +58,7 @@
   $: if (!isTeacher && activeTab === 'enroll') {
     activeTab = 'resources';
   }
-  $: availablePrereqCourses = courses.filter(
+  $: availablePrereqCourses = (allCourses.length > 0 ? allCourses : courses).filter(
     c => c.courseid !== localCourseId && !prerequisites.some(p => p.requiredcourseid === c.courseid)
   );
   $: if (availablePrereqCourses.length > 0 && !availablePrereqCourses.some(c => c.courseid === newPrereqCourseId)) {
@@ -72,6 +74,7 @@
     courses = await api.getCourses();
     if (isTeacher) {
       allUsers = await api.getUsers().catch(() => []);
+      allCourses = await api.getCatalog().catch(() => []);
       if (allUsers.length > 0) enrollStudentId = allUsers[0].userId;
     }
     if (courses.length > 0 && localCourseId === 0) {
@@ -108,6 +111,7 @@
     showCourseModal = false;
     showBatchModal = false;
     showCategoryModal = false;
+    profileUserId = null;
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -574,7 +578,12 @@
           {#each enrollments as e}
             <div class="py-2.5 flex items-center justify-between text-xs">
               <div>
-                <span class="font-medium text-zinc-200">{e.firstname} {e.lastname}</span>
+                <button
+                  class="font-medium text-zinc-200 hover:text-zinc-100 hover:underline underline-offset-2"
+                  on:click={() => { profileUserId = e.userid; }}
+                >
+                  {e.firstname} {e.lastname}
+                </button>
                 <span class="text-zinc-500 font-mono text-[10px] ml-1">({e.email})</span>
               </div>
               <div class="flex items-center space-x-1.5">
@@ -786,5 +795,7 @@
       </div>
     </div>
   {/if}
+
+  <ProfileCard userId={profileUserId} onClose={() => (profileUserId = null)} />
 
 </div>

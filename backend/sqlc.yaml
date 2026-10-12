@@ -4,6 +4,8 @@ sql:
     schema:
       - "../db/migrations/001_schema.up.sql"
       - "../db/migrations/003_batch_scoping.up.sql"
+      - "../db/migrations/004_late_penalty.up.sql"
+      - "../db/migrations/005_rubric_criteria.up.sql"
     queries: "../db/queries"
     gen:
       go:

@@ -50,6 +50,7 @@ func NewRouter(q *db.Queries, sqlDB *sql.DB) http.Handler {
 
 			// Courses
 			api.Get("/courses", h.ListCourses)
+			api.Get("/catalog", h.ListAllCourses)
 			api.Post("/courses", h.CreateCourse)
 			api.Get("/courses/{id}", h.GetCourse)
 			api.Get("/courses/{id}/prerequisites", h.GetCoursePrerequisites)
@@ -123,6 +124,9 @@ func NewRouter(q *db.Queries, sqlDB *sql.DB) http.Handler {
 			api.Post("/rubrics", h.CreateRubric)
 			api.Get("/rubrics/{id}", h.GetRubric)
 			api.Put("/rubrics/{id}", h.UpdateRubric)
+			api.Get("/rubrics/{id}/criteria", h.ListRubricCriteria)
+			api.Put("/rubrics/{id}/criteria", h.SetRubricCriteria)
+			api.Get("/submissions/{id}/criteria", h.GetSubmissionCriteria)
 		})
 	})
 

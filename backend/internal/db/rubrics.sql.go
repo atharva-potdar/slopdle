@@ -10,6 +10,21 @@ import (
 	"database/sql"
 )
 
+const createCriterion = `-- name: CreateCriterion :execresult
+INSERT INTO RubricCriterion (RubricID, Title, MaxPoints)
+VALUES (?, ?, ?)
+`
+
+type CreateCriterionParams struct {
+	Rubricid  int32  `json:"rubricid"`
+	Title     string `json:"title"`
+	Maxpoints string `json:"maxpoints"`
+}
+
+func (q *Queries) CreateCriterion(ctx context.Context, arg CreateCriterionParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, createCriterion, arg.Rubricid, arg.Title, arg.Maxpoints)
+}
+
 const createRubric = `-- name: CreateRubric :execresult
 INSERT INTO Rubric (Title, Department, Description)
 VALUES (?, ?, ?)
@@ -23,6 +38,33 @@ type CreateRubricParams struct {
 
 func (q *Queries) CreateRubric(ctx context.Context, arg CreateRubricParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, createRubric, arg.Title, arg.Department, arg.Description)
+}
+
+const deleteCriterion = `-- name: DeleteCriterion :exec
+DELETE FROM RubricCriterion WHERE CriterionID = ?
+`
+
+func (q *Queries) DeleteCriterion(ctx context.Context, criterionid int32) error {
+	_, err := q.db.ExecContext(ctx, deleteCriterion, criterionid)
+	return err
+}
+
+const getCriterionByID = `-- name: GetCriterionByID :one
+SELECT CriterionID, RubricID, Title, MaxPoints
+FROM RubricCriterion
+WHERE CriterionID = ? LIMIT 1
+`
+
+func (q *Queries) GetCriterionByID(ctx context.Context, criterionid int32) (Rubriccriterion, error) {
+	row := q.db.QueryRowContext(ctx, getCriterionByID, criterionid)
+	var i Rubriccriterion
+	err := row.Scan(
+		&i.Criterionid,
+		&i.Rubricid,
+		&i.Title,
+		&i.Maxpoints,
+	)
+	return i, err
 }
 
 const getRubricByID = `-- name: GetRubricByID :one
@@ -41,6 +83,89 @@ func (q *Queries) GetRubricByID(ctx context.Context, rubricid int32) (Rubric, er
 		&i.Description,
 	)
 	return i, err
+}
+
+const listCriterionScoresBySubmission = `-- name: ListCriterionScoresBySubmission :many
+SELECT ecs.SubmissionID, ecs.CriterionID, ecs.Score, ecs.Feedback,
+       rc.Title AS CriterionTitle, rc.MaxPoints
+FROM EvaluationCriterionScore ecs
+JOIN RubricCriterion rc ON rc.CriterionID = ecs.CriterionID
+WHERE ecs.SubmissionID = ?
+ORDER BY ecs.CriterionID ASC
+`
+
+type ListCriterionScoresBySubmissionRow struct {
+	Submissionid   int32          `json:"submissionid"`
+	Criterionid    int32          `json:"criterionid"`
+	Score          string         `json:"score"`
+	Feedback       sql.NullString `json:"feedback"`
+	Criteriontitle string         `json:"criteriontitle"`
+	Maxpoints      string         `json:"maxpoints"`
+}
+
+func (q *Queries) ListCriterionScoresBySubmission(ctx context.Context, submissionid int32) ([]ListCriterionScoresBySubmissionRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCriterionScoresBySubmission, submissionid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCriterionScoresBySubmissionRow{}
+	for rows.Next() {
+		var i ListCriterionScoresBySubmissionRow
+		if err := rows.Scan(
+			&i.Submissionid,
+			&i.Criterionid,
+			&i.Score,
+			&i.Feedback,
+			&i.Criteriontitle,
+			&i.Maxpoints,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRubricCriteria = `-- name: ListRubricCriteria :many
+SELECT CriterionID, RubricID, Title, MaxPoints
+FROM RubricCriterion
+WHERE RubricID = ?
+ORDER BY CriterionID ASC
+`
+
+func (q *Queries) ListRubricCriteria(ctx context.Context, rubricid int32) ([]Rubriccriterion, error) {
+	rows, err := q.db.QueryContext(ctx, listRubricCriteria, rubricid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Rubriccriterion{}
+	for rows.Next() {
+		var i Rubriccriterion
+		if err := rows.Scan(
+			&i.Criterionid,
+			&i.Rubricid,
+			&i.Title,
+			&i.Maxpoints,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listRubrics = `-- name: ListRubrics :many
@@ -77,6 +202,23 @@ func (q *Queries) ListRubrics(ctx context.Context) ([]Rubric, error) {
 	return items, nil
 }
 
+const updateCriterion = `-- name: UpdateCriterion :exec
+UPDATE RubricCriterion
+SET Title = ?, MaxPoints = ?
+WHERE CriterionID = ?
+`
+
+type UpdateCriterionParams struct {
+	Title       string `json:"title"`
+	Maxpoints   string `json:"maxpoints"`
+	Criterionid int32  `json:"criterionid"`
+}
+
+func (q *Queries) UpdateCriterion(ctx context.Context, arg UpdateCriterionParams) error {
+	_, err := q.db.ExecContext(ctx, updateCriterion, arg.Title, arg.Maxpoints, arg.Criterionid)
+	return err
+}
+
 const updateRubric = `-- name: UpdateRubric :exec
 UPDATE Rubric
 SET Title = ?, Department = ?, Description = ?
@@ -96,6 +238,29 @@ func (q *Queries) UpdateRubric(ctx context.Context, arg UpdateRubricParams) erro
 		arg.Department,
 		arg.Description,
 		arg.Rubricid,
+	)
+	return err
+}
+
+const upsertCriterionScore = `-- name: UpsertCriterionScore :exec
+INSERT INTO EvaluationCriterionScore (SubmissionID, CriterionID, Score, Feedback)
+VALUES (?, ?, ?, ?)
+ON DUPLICATE KEY UPDATE Score = VALUES(Score), Feedback = VALUES(Feedback)
+`
+
+type UpsertCriterionScoreParams struct {
+	Submissionid int32          `json:"submissionid"`
+	Criterionid  int32          `json:"criterionid"`
+	Score        string         `json:"score"`
+	Feedback     sql.NullString `json:"feedback"`
+}
+
+func (q *Queries) UpsertCriterionScore(ctx context.Context, arg UpsertCriterionScoreParams) error {
+	_, err := q.db.ExecContext(ctx, upsertCriterionScore,
+		arg.Submissionid,
+		arg.Criterionid,
+		arg.Score,
+		arg.Feedback,
 	)
 	return err
 }

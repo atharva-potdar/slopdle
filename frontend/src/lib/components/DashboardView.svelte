@@ -102,7 +102,7 @@
       done: true,
       late: !!s.submissiontime?.Time && !!s.deadline &&
         new Date(s.submissiontime.Time).getTime() > new Date(s.deadline).getTime(),
-      score: s.score?.String || null,
+      score: s.effectivescore ?? s.score?.String ?? null,
       submittedOn: s.submissiontime?.Time ? fmtDate(s.submissiontime.Time) : null,
     })),
   ];
@@ -152,7 +152,7 @@
       <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
         <div class="text-xs font-medium text-zinc-400">Latest Score</div>
         <div class="mt-2 text-2xl font-semibold tracking-tight text-zinc-100 font-mono">
-          {grades.length > 0 ? `${grades[0].score}` : 'Pending'}
+          {grades.length > 0 ? `${grades[0].effectivescore ?? grades[0].score}` : 'Pending'}
         </div>
         <p class="text-[11px] text-zinc-500 mt-1 truncate">
           {grades.length > 0 ? grades[0].assignment : 'Awaiting instructor evaluation'}

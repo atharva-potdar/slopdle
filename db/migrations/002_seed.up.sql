@@ -486,8 +486,14 @@ ON DUPLICATE KEY UPDATE Status=VALUES(Status);
 
 -- Resources & Categories
 INSERT INTO ResourceCategory (CategoryID, CategoryName, CourseID) VALUES 
-(1, 'Lectures', 1), (2, 'Assignments', 1), (3, 'Lectures', 2), (4, 'Readings', 3),
-(5, 'Lectures', 4), (6, 'Assignments', 4), (7, 'Lectures', 5), (8, 'Readings', 6)
+(1, 'Lecture Notes', 1), (2, 'Assignments', 1), (3, 'Lecture Notes', 2), (4, 'Readings', 3),
+(5, 'Lecture Notes', 4), (6, 'Assignments', 4), (7, 'Lecture Notes', 5), (8, 'Readings', 6),
+(9, 'Syllabus', 1), (10, 'Previous Year Questions (PYQs)', 1),
+(11, 'Syllabus', 2), (12, 'Previous Year Questions (PYQs)', 2),
+(13, 'Syllabus', 3), (14, 'Previous Year Questions (PYQs)', 3),
+(15, 'Syllabus', 4), (16, 'Previous Year Questions (PYQs)', 4),
+(17, 'Syllabus', 5), (18, 'Previous Year Questions (PYQs)', 5),
+(19, 'Syllabus', 6), (20, 'Previous Year Questions (PYQs)', 6)
 ON DUPLICATE KEY UPDATE CategoryName=VALUES(CategoryName);
 
 INSERT INTO Resource (ResourceID, Title, FileURL, CategoryID) VALUES 

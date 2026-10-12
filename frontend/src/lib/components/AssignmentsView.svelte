@@ -39,8 +39,27 @@
   let gradingSubmissionId: number = 0;
   let gradingContext = '';
   let gradingContent = '';
+  let gradingBreakdown = '';
+  let gradingPenalty = { days: 0, enabled: false, perDay: 0 };
   let gradeScore: number = 90;
   let gradeFeedback: string = '';
+  let gradingCriteria: { criterionid: number; title: string; maxpoints: number; value: number }[] = [];
+
+  $: criterionMaxTotal = gradingCriteria.reduce((s, c) => s + c.maxpoints, 0);
+  $: criterionSum = gradingCriteria.reduce((s, c) => s + (c.value || 0), 0);
+  $: criterionNormalized =
+    criterionMaxTotal > 0 ? Math.round((criterionSum / criterionMaxTotal) * 100 * 100) / 100 : 0;
+  $: criterionFinal = finalAfterPenalty(criterionNormalized);
+  // Criterion sliders drive the suggested score while the modal is open.
+  $: if (showGradeModal && gradingCriteria.length > 0 && criterionMaxTotal > 0) {
+    gradeScore = criterionNormalized;
+  }
+
+  function finalAfterPenalty(n: number): number {
+    if (!gradingPenalty.enabled || gradingPenalty.days <= 0) return Math.round(n * 100) / 100;
+    const rate = Math.min(1, (gradingPenalty.days * gradingPenalty.perDay) / 100);
+    return Math.max(0, Math.round(n * (1 - rate) * 100) / 100);
+  }
 
   // Create assignment form
   let showCreateModal = false;
@@ -51,6 +70,8 @@
   let newAssignFormat = 'PDF/ZIP';
   let newAssignRubricId = 0;
   let newAssignBatchIds: number[] = [];
+  let newAssignPenalty = 10;
+  let newAssignPenaltyEnabled = true;
 
   // Rubric management form
   let showRubricModal = false;
@@ -58,6 +79,9 @@
   let rubricTitle = '';
   let rubricDepartment = '';
   let rubricDescription = '';
+  let rubricCriteria: { criterionId?: number; title: string; maxPoints: number }[] = [];
+  let newCriterionTitle = '';
+  let newCriterionMax: number = 10;
 
   // Query data
   let submissionReport: SubmissionReportItem[] = [];
@@ -128,6 +152,7 @@
     showGradeModal = false;
     showCreateModal = false;
     showRubricModal = false;
+    gradingCriteria = [];
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -159,21 +184,69 @@
 
   async function handleGradeSubmission() {
     try {
-      await api.evaluateSubmission(gradingSubmissionId, gradeScore, gradeFeedback, currentUser.userId);
+      const critPayload =
+        gradingCriteria.length > 0
+          ? gradingCriteria.map((c) => ({ criterionId: c.criterionid, score: c.value }))
+          : [];
+      await api.evaluateSubmission(gradingSubmissionId, gradeScore, gradeFeedback, currentUser.userId, critPayload);
       showGradeModal = false;
+      gradingCriteria = [];
       await loadTabReports();
     } catch (err: any) {
       alert(err.message);
     }
   }
 
-  function openGradeModal(rep: SubmissionReportItem) {
+  async function openGradeModal(rep: SubmissionReportItem) {
     gradingSubmissionId = rep.submissionId;
     gradingContext = `${rep.studentName} — ${rep.assignmentName}`;
     gradingContent = rep.content || '';
-    gradeScore = rep.score ? parseFloat(rep.score) : 90;
+    gradingCriteria = [];
+    gradingPenalty = {
+      days: rep.daysLate || 0,
+      enabled: rep.penaltyEnabled,
+      perDay: parseFloat(rep.penaltyPerDay || '0') || 0,
+    };
+    // Suggested score: post-penalty effective score applied by default.
+    const suggested = rep.effectiveScore ?? rep.score;
+    gradeScore = suggested ? parseFloat(suggested) : 90;
+    if (rep.score && rep.daysLate > 0 && rep.penaltyEnabled) {
+      gradingBreakdown = `Raw ${rep.score} • ${rep.daysLate}d late × ${parseFloat(rep.penaltyPerDay || '0')}%/day • −${rep.penaltyApplied} → suggested ${rep.effectiveScore}`;
+    } else if (rep.score && rep.daysLate > 0) {
+      gradingBreakdown = `Raw ${rep.score} • ${rep.daysLate}d late • penalty disabled → suggested ${rep.score}`;
+    } else {
+      gradingBreakdown = '';
+    }
     gradeFeedback = 'Meets rubric specifications and criteria.';
     showGradeModal = true;
+    // Load rubric criteria + previous criterion scores for slider grading.
+    try {
+      const a = assignments.find((x) => x.assignmentid === rep.assignmentId);
+      const rid = a?.rubricid?.Valid ? a.rubricid.Int32 : 0;
+      if (!rid) return;
+      const crits = await api.getRubricCriteria(rid);
+      if (crits.length === 0) return;
+      const existing: Record<number, number> = {};
+      try {
+        const scores = await api.getSubmissionCriteria(rep.submissionId);
+        scores.forEach((s) => {
+          existing[s.criterionid] = parseFloat(s.score) || 0;
+        });
+      } catch (e) {
+        console.error(e);
+      }
+      gradingCriteria = crits.map((c) => {
+        const max = parseFloat(c.maxpoints) || 0;
+        return {
+          criterionid: c.criterionid,
+          title: c.title,
+          maxpoints: max,
+          value: existing[c.criterionid] ?? max,
+        };
+      });
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   async function handleCreateAssignment() {
@@ -185,6 +258,8 @@
       formatRequired: newAssignFormat,
       rubricId: newAssignRubricId || null,
       batchIds: newAssignBatchIds,
+      latePenaltyPerDay: newAssignPenalty,
+      latePenaltyEnabled: newAssignPenaltyEnabled,
     };
     try {
       if (editingAssignmentId) {
@@ -198,6 +273,8 @@
       newAssignFormat = 'PDF/ZIP';
       newAssignRubricId = 0;
       newAssignBatchIds = [];
+      newAssignPenalty = 10;
+      newAssignPenaltyEnabled = true;
       editingAssignmentId = 0;
       showCreateModal = false;
       await loadInitialData();
@@ -214,6 +291,8 @@
     newAssignFormat = 'PDF/ZIP';
     newAssignRubricId = 0;
     newAssignBatchIds = [];
+    newAssignPenalty = 10;
+    newAssignPenaltyEnabled = true;
     showCreateModal = true;
   }
 
@@ -225,6 +304,8 @@
     newAssignFormat = a.formatrequired?.String || 'PDF/ZIP';
     newAssignRubricId = a.rubricid?.Valid ? a.rubricid.Int32 : 0;
     newAssignBatchIds = parseBatchIds(a.batchids as any);
+    newAssignPenalty = a.latepenaltyperday ? parseFloat(a.latepenaltyperday) : 10;
+    newAssignPenaltyEnabled = a.latepenaltyenabled ?? true;
     showCreateModal = true;
   }
 
@@ -243,25 +324,57 @@
     rubricTitle = '';
     rubricDepartment = '';
     rubricDescription = '';
+    rubricCriteria = [];
+    newCriterionTitle = '';
+    newCriterionMax = 10;
     showRubricModal = true;
   }
 
-  function openEditRubric(r: Rubric) {
+  async function openEditRubric(r: Rubric) {
     editingRubricId = r.rubricid;
     rubricTitle = r.title;
     rubricDepartment = r.department?.String || '';
     rubricDescription = r.description?.String || '';
+    rubricCriteria = [];
+    newCriterionTitle = '';
+    newCriterionMax = 10;
     showRubricModal = true;
+    try {
+      const crits = await api.getRubricCriteria(r.rubricid);
+      rubricCriteria = crits.map((c) => ({
+        criterionId: c.criterionid,
+        title: c.title,
+        maxPoints: parseFloat(c.maxpoints) || 0,
+      }));
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function addCriterionRow() {
+    if (!newCriterionTitle.trim() || !(newCriterionMax > 0)) return;
+    rubricCriteria = [...rubricCriteria, { title: newCriterionTitle.trim(), maxPoints: newCriterionMax }];
+    newCriterionTitle = '';
+    newCriterionMax = 10;
+  }
+
+  function removeCriterionRow(idx: number) {
+    rubricCriteria = rubricCriteria.filter((_, i) => i !== idx);
   }
 
   async function handleSaveRubric() {
     if (!rubricTitle) return;
     const data = { title: rubricTitle, department: rubricDepartment, description: rubricDescription };
     try {
+      let rid = editingRubricId;
       if (editingRubricId) {
         await api.updateRubric(editingRubricId, data);
       } else {
-        await api.createRubric(data);
+        const res: any = await api.createRubric(data);
+        rid = res.rubricId;
+      }
+      if (rid) {
+        await api.setRubricCriteria(rid, rubricCriteria);
       }
       showRubricModal = false;
       rubrics = await api.getRubrics();
@@ -377,6 +490,15 @@
                 <span class="font-mono text-[10px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
                   {a.rubrictitle?.String || 'No rubric'}
                 </span>
+                {#if a.latepenaltyenabled ?? true}
+                  <span class="font-mono text-[10px] text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
+                    Late −{parseFloat(a.latepenaltyperday || '10')}%/day
+                  </span>
+                {:else}
+                  <span class="font-mono text-[10px] text-zinc-500 px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-950">
+                    No late penalty
+                  </span>
+                {/if}
               </div>
             </div>
 
@@ -451,7 +573,9 @@
                 <th class="h-9 px-4 align-middle font-medium">Submitted</th>
                 <th class="h-9 px-4 align-middle font-medium">Deadline</th>
                 <th class="h-9 px-4 align-middle font-medium">Timeliness</th>
-                <th class="h-9 px-4 align-middle font-medium">Score</th>
+                <th class="h-9 px-4 align-middle font-medium">Raw</th>
+                <th class="h-9 px-4 align-middle font-medium">Late</th>
+                <th class="h-9 px-4 align-middle font-medium">Final</th>
                 <th class="h-9 px-4 align-middle font-medium">Graded By</th>
                 {#if isTeacher}
                   <th class="h-9 px-4 align-middle font-medium text-right">Action</th>
@@ -486,6 +610,10 @@
                   </span>
                 </td>
                 <td class="p-4 font-mono font-medium text-zinc-100">{rep.score || 'Ungraded'}</td>
+                <td class="p-4 font-mono text-[11px] {rep.daysLate > 0 ? 'text-red-400' : 'text-zinc-500'}">
+                  {rep.daysLate > 0 ? `${rep.daysLate}d × ${parseFloat(rep.penaltyPerDay || '0')}% −${rep.penaltyApplied}` : '—'}
+                </td>
+                <td class="p-4 font-mono font-medium text-zinc-100">{rep.effectiveScore || 'Ungraded'}</td>
                 <td class="p-4 text-zinc-400">{rep.gradedBy}</td>
                 {#if isTeacher}
                   <td class="p-4 text-right">
@@ -573,13 +701,26 @@
         {#each myGrades as g}
           <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-900/30 transition-colors">
             <div>
-              <h4 class="text-xs font-semibold text-zinc-100">{g.assignment}</h4>
+              <h4 class="text-xs font-semibold text-zinc-100">
+                {g.assignment}
+                {#if (g.dayslate || 0) > 0}
+                  <span class="ml-2 inline-flex items-center rounded border border-red-900/60 bg-red-950/30 px-1.5 py-0.5 text-[10px] font-mono text-red-400">
+                    {g.dayslate}d LATE −{g.penaltyapplied}
+                  </span>
+                {/if}
+              </h4>
               <p class="text-xs text-zinc-400 mt-0.5">{g.feedback?.String || 'No feedback recorded.'}</p>
+              {#if (g.dayslate || 0) > 0}
+                <p class="text-[11px] font-mono text-zinc-500 mt-0.5">Raw {g.score} − {g.penaltyapplied} penalty</p>
+              {/if}
+              {#if g.criterionbreakdown?.String}
+                <p class="text-[11px] font-mono text-zinc-500 mt-0.5">{g.criterionbreakdown.String}</p>
+              {/if}
             </div>
 
             <div class="flex items-center space-x-4">
               <span class="font-mono text-xs font-semibold text-zinc-100 px-2 py-0.5 rounded border border-zinc-800 bg-zinc-900">
-                {g.score} / 100
+                {g.effectivescore ?? g.score} / 100
               </span>
             </div>
           </div>
@@ -682,6 +823,9 @@
           {#if gradingContext}
             <p class="text-xs text-zinc-500 mt-0.5">{gradingContext}</p>
           {/if}
+          {#if gradingBreakdown}
+            <p class="text-[11px] font-mono text-zinc-400 mt-1">{gradingBreakdown}</p>
+          {/if}
         </div>
 
         {#if gradingContent}
@@ -703,15 +847,41 @@
           </div>
         {/if}
 
+        {#if gradingCriteria.length > 0}
+          <div class="rounded-md border border-zinc-800 bg-zinc-900/40 p-3 space-y-3">
+            <div class="text-[10px] font-mono uppercase tracking-wider text-zinc-500">Rubric criteria</div>
+            {#each gradingCriteria as c}
+              <div>
+                <div class="flex items-center justify-between text-xs mb-1">
+                  <span class="text-zinc-300">{c.title}</span>
+                  <span class="font-mono text-zinc-400">{c.value.toFixed(1)} / {c.maxpoints}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max={c.maxpoints}
+                  step="0.5"
+                  bind:value={c.value}
+                  aria-label={c.title}
+                  class="w-full accent-zinc-100"
+                />
+              </div>
+            {/each}
+            <p class="text-[11px] font-mono text-zinc-400">
+              {criterionSum.toFixed(2)} / {criterionMaxTotal.toFixed(2)} → {criterionNormalized.toFixed(2)} → final {criterionFinal.toFixed(2)} after penalty
+            </p>
+          </div>
+        {/if}
+
         <div>
           <label for="grade-score-input" class="block text-xs font-medium text-zinc-400 mb-1">Score (0 - 100)</label>
-          <input 
+          <input
             id="grade-score-input"
-            type="number" 
-            bind:value={gradeScore} 
-            min="0" 
-            max="100" 
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400" 
+            type="number"
+            bind:value={gradeScore}
+            min="0"
+            max="100"
+            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400"
           />
         </div>
 
@@ -792,6 +962,30 @@
             <p class="text-[11px] text-zinc-500 mt-1">Leave all unchecked to make it course-wide.</p>
           </div>
 
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label for="assign-penalty" class="text-xs font-medium text-zinc-400">Late penalty (% per day)</label>
+              <label class="inline-flex items-center gap-1.5 text-xs text-zinc-300">
+                <input id="assign-penalty-enabled" type="checkbox" bind:checked={newAssignPenaltyEnabled} />
+                Enabled
+              </label>
+            </div>
+            <div class="flex items-center gap-3">
+              <input
+                id="assign-penalty"
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                bind:value={newAssignPenalty}
+                disabled={!newAssignPenaltyEnabled}
+                class="flex-1 accent-zinc-100 disabled:opacity-40"
+              />
+              <span class="font-mono text-xs text-zinc-200 w-12 text-right">{newAssignPenalty}%</span>
+            </div>
+            <p class="text-[11px] text-zinc-500 mt-1">Deducted per day late from the raw score. 0% keeps the late label with no deduction.</p>
+          </div>
+
         <div class="flex justify-end space-x-2 pt-2 border-t border-zinc-800">
           <button on:click={() => showCreateModal = false} class="px-3 py-1.5 text-xs rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100">Cancel</button>
           <button on:click={handleCreateAssignment} class="px-3 py-1.5 text-xs rounded-md bg-zinc-100 text-zinc-950 font-medium hover:bg-zinc-200">{editingAssignmentId ? 'Save' : 'Create'}</button>
@@ -822,6 +1016,62 @@
           <label for="rubric-description" class="block text-xs font-medium text-zinc-400 mb-1">Description</label>
           <textarea id="rubric-description" bind:value={rubricDescription} rows="3"
             class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400"></textarea>
+        </div>
+
+        <div class="border-t border-zinc-800 pt-3 space-y-2">
+          <span class="block text-xs font-medium text-zinc-400">Grading Criteria</span>
+          {#each rubricCriteria as crit, idx}
+            <div class="flex items-center gap-2">
+              <input
+                bind:value={crit.title}
+                placeholder="Criterion title"
+                aria-label="Criterion title"
+                class="flex-1 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              />
+              <input
+                type="number"
+                bind:value={crit.maxPoints}
+                min="0.5"
+                step="0.5"
+                aria-label="Max points"
+                class="w-20 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              />
+              <button
+                type="button"
+                on:click={() => removeCriterionRow(idx)}
+                aria-label="Remove criterion"
+                class="h-7 w-7 inline-flex items-center justify-center rounded border border-zinc-800 text-zinc-500 hover:text-red-300 hover:border-red-900/60 transition-colors"
+              >
+                ×
+              </button>
+            </div>
+          {/each}
+          {#if rubricCriteria.length === 0}
+            <p class="text-[11px] text-zinc-600">No criteria — grading uses a single flat score.</p>
+          {/if}
+          <div class="flex items-center gap-2">
+            <input
+              bind:value={newCriterionTitle}
+              placeholder="e.g. Correctness"
+              aria-label="New criterion title"
+              class="flex-1 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            />
+            <input
+              type="number"
+              bind:value={newCriterionMax}
+              min="0.5"
+              step="0.5"
+              aria-label="New criterion max points"
+              class="w-20 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 font-mono focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            />
+            <button
+              type="button"
+              on:click={addCriterionRow}
+              class="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 transition-colors"
+            >
+              Add
+            </button>
+          </div>
         </div>
 
         <div class="flex justify-end space-x-2 pt-2 border-t border-zinc-800">

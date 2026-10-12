@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -11,12 +12,27 @@ import (
 )
 
 type CreateAssignmentRequest struct {
-	Title          string    `json:"title"`
-	Description    string    `json:"description"`
-	Deadline       time.Time `json:"deadline"`
-	FormatRequired string    `json:"formatRequired"`
-	RubricID       *int32    `json:"rubricId"`
-	BatchIDs       []int32   `json:"batchIds"`
+	Title              string    `json:"title"`
+	Description        string    `json:"description"`
+	Deadline           time.Time `json:"deadline"`
+	FormatRequired     string    `json:"formatRequired"`
+	RubricID           *int32    `json:"rubricId"`
+	BatchIDs           []int32   `json:"batchIds"`
+	LatePenaltyPerDay  *float64  `json:"latePenaltyPerDay"`
+	LatePenaltyEnabled *bool     `json:"latePenaltyEnabled"`
+}
+
+// penaltySettings applies spec defaults (10.00%/day, enabled) when omitted.
+func penaltySettings(req CreateAssignmentRequest) (string, bool) {
+	perDay := 10.00
+	if req.LatePenaltyPerDay != nil {
+		perDay = *req.LatePenaltyPerDay
+	}
+	enabled := true
+	if req.LatePenaltyEnabled != nil {
+		enabled = *req.LatePenaltyEnabled
+	}
+	return fmt.Sprintf("%.2f", perDay), enabled
 }
 
 // setAssignmentBatches replaces an assignment's batch scope atomically.
@@ -111,14 +127,17 @@ func (h *AppHandler) CreateAssignment(w http.ResponseWriter, r *http.Request) {
 	if req.RubricID != nil {
 		rubricID = sql.NullInt32{Int32: *req.RubricID, Valid: true}
 	}
+	perDay, penaltyEnabled := penaltySettings(req)
 
 	res, err := h.q.CreateAssignment(r.Context(), db.CreateAssignmentParams{
-		Title:          req.Title,
-		Description:    sql.NullString{String: req.Description, Valid: req.Description != ""},
-		Deadline:       req.Deadline,
-		Formatrequired: sql.NullString{String: req.FormatRequired, Valid: req.FormatRequired != ""},
-		Courseid:       courseID,
-		Rubricid:       rubricID,
+		Title:              req.Title,
+		Description:        sql.NullString{String: req.Description, Valid: req.Description != ""},
+		Deadline:           req.Deadline,
+		Formatrequired:     sql.NullString{String: req.FormatRequired, Valid: req.FormatRequired != ""},
+		Courseid:           courseID,
+		Rubricid:           rubricID,
+		Latepenaltyperday:  perDay,
+		Latepenaltyenabled: penaltyEnabled,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -162,14 +181,23 @@ func (h *AppHandler) UpdateAssignment(w http.ResponseWriter, r *http.Request) {
 	if req.RubricID != nil {
 		rubricID = sql.NullInt32{Int32: *req.RubricID, Valid: true}
 	}
+	perDay, penaltyEnabled := penaltySettings(req)
+	if req.LatePenaltyPerDay == nil {
+		perDay = assignment.Latepenaltyperday
+	}
+	if req.LatePenaltyEnabled == nil {
+		penaltyEnabled = assignment.Latepenaltyenabled
+	}
 
 	err = h.q.UpdateAssignment(r.Context(), db.UpdateAssignmentParams{
-		Title:          req.Title,
-		Description:    sql.NullString{String: req.Description, Valid: req.Description != ""},
-		Deadline:       req.Deadline,
-		Formatrequired: sql.NullString{String: req.FormatRequired, Valid: req.FormatRequired != ""},
-		Rubricid:       rubricID,
-		Assignmentid:   id,
+		Title:              req.Title,
+		Description:        sql.NullString{String: req.Description, Valid: req.Description != ""},
+		Deadline:           req.Deadline,
+		Formatrequired:     sql.NullString{String: req.FormatRequired, Valid: req.FormatRequired != ""},
+		Rubricid:           rubricID,
+		Latepenaltyperday:  perDay,
+		Latepenaltyenabled: penaltyEnabled,
+		Assignmentid:       id,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

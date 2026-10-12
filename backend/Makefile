@@ -14,8 +14,12 @@ run: build
 migrate:
 	mariadb -u atharva-potdar test < ../db/migrations/001_schema.up.sql
 	mariadb -u atharva-potdar test < ../db/migrations/003_batch_scoping.up.sql
+	mariadb -u atharva-potdar test < ../db/migrations/004_late_penalty.up.sql
+	mariadb -u atharva-potdar test < ../db/migrations/005_rubric_criteria.up.sql
 
 migrate-down:
+	mariadb -u atharva-potdar test < ../db/migrations/005_rubric_criteria.down.sql
+	mariadb -u atharva-potdar test < ../db/migrations/004_late_penalty.down.sql
 	mariadb -u atharva-potdar test < ../db/migrations/003_batch_scoping.down.sql
 	mariadb -u atharva-potdar test < ../db/migrations/001_schema.down.sql
 

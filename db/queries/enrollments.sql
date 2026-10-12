@@ -46,8 +46,16 @@ FROM Enrollment
 WHERE EnrollmentID = ? LIMIT 1;
 
 -- name: CheckPrerequisiteGrade :one
-SELECT AVG(e.Score) as AvgScore
-FROM Evaluation e
-JOIN Submission s ON e.SubmissionID = s.SubmissionID
-JOIN Assignment a ON s.AssignmentID = a.AssignmentID
-WHERE s.UserID = ? AND a.CourseID = ?;
+-- Completion-weighted average over ALL assignments in the required course:
+-- each assignment contributes its latest evaluated score, or 0 when the
+-- student never submitted or was never graded.
+SELECT AVG(COALESCE((
+    SELECT e.Score
+    FROM Submission s
+    JOIN Evaluation e ON e.SubmissionID = s.SubmissionID
+    WHERE s.AssignmentID = a.AssignmentID AND s.UserID = ?
+    ORDER BY s.SubmissionTime DESC, s.SubmissionID DESC
+    LIMIT 1
+), 0)) AS AvgScore
+FROM Assignment a
+WHERE a.CourseID = ?;

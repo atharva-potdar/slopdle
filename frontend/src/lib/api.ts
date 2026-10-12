@@ -47,6 +47,8 @@ export interface Assignment {
   rubrictitle?: { String: string; Valid: boolean };
   batchids?: string | null;
   batchnames?: string | null;
+  latepenaltyperday?: string;
+  latepenaltyenabled?: boolean;
 }
 
 export interface SubmissionReportItem {
@@ -59,6 +61,11 @@ export interface SubmissionReportItem {
   deadline: string;
   timeliness: 'ON TIME' | 'LATE';
   score?: string;
+  daysLate: number;
+  penaltyPerDay: string;
+  penaltyEnabled: boolean;
+  penaltyApplied?: string;
+  effectiveScore?: string;
   gradedBy: string;
 }
 
@@ -68,6 +75,10 @@ export interface StudentGradeItem {
   assignment: string;
   score: string;
   feedback?: { String: string; Valid: boolean };
+  dayslate?: number;
+  penaltyapplied?: string;
+  effectivescore?: string;
+  criterionbreakdown?: { String: string; Valid: boolean };
 }
 
 export interface PendingStudent {
@@ -144,6 +155,7 @@ export interface UserSubmission {
   submissionid: number;
   submissiontime?: { Time: string; Valid: boolean };
   score?: { String: string; Valid: boolean };
+  effectivescore?: string;
 }
 
 export interface AttendanceSummary {
@@ -179,6 +191,34 @@ export interface Rubric {
   description?: { String: string; Valid: boolean };
 }
 
+export interface Criterion {
+  criterionid: number;
+  rubricid: number;
+  title: string;
+  maxpoints: string;
+}
+
+export interface CriterionScore {
+  submissionid: number;
+  criterionid: number;
+  score: string;
+  feedback?: { String: string; Valid: boolean };
+  criteriontitle: string;
+  maxpoints: string;
+}
+
+export interface CriterionInput {
+  criterionId?: number;
+  title: string;
+  maxPoints: number;
+}
+
+export interface CriterionGradeInput {
+  criterionId: number;
+  score: number;
+  feedback?: string;
+}
+
 export const api = {
   // Auth
   login: (email: string, password: string) =>
@@ -201,6 +241,7 @@ export const api = {
 
   // Courses
   getCourses: () => request<Course[]>('/courses'),
+  getCatalog: () => request<Course[]>('/catalog'),
   getCourse: (id: number) => request<{ course: Course; prerequisites: any[] }>(`/courses/${id}`),
   createCourse: (data: { courseCode: string; title: string; description: string }) =>
     request('/courses', { method: 'POST', body: JSON.stringify(data) }),
@@ -277,10 +318,10 @@ export const api = {
       body: JSON.stringify({ contentData }),
     }),
   getSubmissions: (assignmentId: number) => request<any[]>(`/assignments/${assignmentId}/submissions`),
-  evaluateSubmission: (submissionId: number, score: number, feedback: string, graderId?: number) =>
+  evaluateSubmission: (submissionId: number, score: number, feedback: string, graderId?: number, criteria?: CriterionGradeInput[]) =>
     request(`/submissions/${submissionId}/evaluate`, {
       method: 'POST',
-      body: JSON.stringify({ score, feedback, graderId }),
+      body: JSON.stringify({ score, feedback, graderId, criteria: criteria || [] }),
     }),
   getSubmissionReport: (courseId: number) =>
     request<SubmissionReportItem[]>(`/courses/${courseId}/submissions/report`),
@@ -351,4 +392,9 @@ export const api = {
     request('/rubrics', { method: 'POST', body: JSON.stringify(data) }),
   updateRubric: (id: number, data: { title: string; department: string; description: string }) =>
     request(`/rubrics/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getRubricCriteria: (id: number) => request<Criterion[]>(`/rubrics/${id}/criteria`),
+  setRubricCriteria: (id: number, criteria: CriterionInput[]) =>
+    request(`/rubrics/${id}/criteria`, { method: 'PUT', body: JSON.stringify({ criteria }) }),
+  getSubmissionCriteria: (submissionId: number) =>
+    request<CriterionScore[]>(`/submissions/${submissionId}/criteria`),
 };

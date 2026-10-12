@@ -29,6 +29,21 @@ func (h *AppHandler) ListCourses(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, courses)
 }
 
+// ListAllCourses exposes the full course catalog (e.g. for picking
+// prerequisites outside the caller's own enrollments). Staff only.
+func (h *AppHandler) ListAllCourses(w http.ResponseWriter, r *http.Request) {
+	if !h.requireAnyStaff(w, r) {
+		return
+	}
+
+	courses, err := h.q.ListCourses(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, courses)
+}
+
 func (h *AppHandler) GetCourse(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r, "id")
 	if err != nil {
@@ -75,6 +90,39 @@ func (h *AppHandler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newID, _ := res.LastInsertId()
+
+	// Enroll the creator as Teacher so the course is visible and manageable.
+	tx, err := h.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer tx.Rollback()
+	if _, err := h.q.WithTx(tx).EnrollUser(r.Context(), db.EnrollUserParams{
+		Userid:   h.callerID(r),
+		Courseid: int32(newID),
+		Roleid:   1, // Teacher
+		Batchid:  sql.NullInt32{},
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	// Seed the standard Resource Center categories so a new course is
+	// usable immediately and matches the seeded curriculum.
+	for _, name := range []string{"Syllabus", "Lecture Notes", "Previous Year Questions (PYQs)", "Assignments"} {
+		if _, err := h.q.WithTx(tx).CreateCategory(r.Context(), db.CreateCategoryParams{
+			Categoryname: name,
+			Courseid:     int32(newID),
+		}); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"message":  "course created",
 		"courseId": newID,

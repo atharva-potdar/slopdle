@@ -85,6 +85,10 @@ func (h *AppHandler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid user id")
 		return
 	}
+	if h.callerID(r) != id {
+		writeError(w, http.StatusForbidden, "forbidden: can only edit own profile")
+		return
+	}
 
 	var req UpdateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -114,6 +118,10 @@ func (h *AppHandler) AddUserPhoto(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid user id")
 		return
 	}
+	if h.callerID(r) != id {
+		writeError(w, http.StatusForbidden, "forbidden: can only edit own profile")
+		return
+	}
 
 	var req PhotoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PhotoURL == "" {
@@ -137,6 +145,10 @@ func (h *AppHandler) DeleteUserPhoto(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r, "id")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
+	if h.callerID(r) != id {
+		writeError(w, http.StatusForbidden, "forbidden: can only edit own profile")
 		return
 	}
 

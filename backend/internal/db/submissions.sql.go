@@ -55,7 +55,15 @@ SELECT
     a.AssignmentID,
     a.Title AS Assignment, 
     e.Score, 
-    e.Feedback
+    e.Feedback,
+    s.SubmissionTime,
+    a.Deadline,
+    a.LatePenaltyPerDay,
+    a.LatePenaltyEnabled,
+    (SELECT GROUP_CONCAT(CONCAT(rc.Title, ' ', ecs.Score, '/', rc.MaxPoints) ORDER BY rc.CriterionID SEPARATOR ' • ')
+       FROM EvaluationCriterionScore ecs
+       JOIN RubricCriterion rc ON rc.CriterionID = ecs.CriterionID
+       WHERE ecs.SubmissionID = s.SubmissionID) AS CriterionBreakdown
 FROM User u
 JOIN Submission s ON u.UserID = s.UserID
 JOIN Assignment a ON s.AssignmentID = a.AssignmentID
@@ -70,11 +78,16 @@ type GetStudentGradesInCourseParams struct {
 }
 
 type GetStudentGradesInCourseRow struct {
-	Firstname    string         `json:"firstname"`
-	Assignmentid int32          `json:"assignmentid"`
-	Assignment   string         `json:"assignment"`
-	Score        string         `json:"score"`
-	Feedback     sql.NullString `json:"feedback"`
+	Firstname          string         `json:"firstname"`
+	Assignmentid       int32          `json:"assignmentid"`
+	Assignment         string         `json:"assignment"`
+	Score              string         `json:"score"`
+	Feedback           sql.NullString `json:"feedback"`
+	Submissiontime     sql.NullTime   `json:"submissiontime"`
+	Deadline           time.Time      `json:"deadline"`
+	Latepenaltyperday  string         `json:"latepenaltyperday"`
+	Latepenaltyenabled bool           `json:"latepenaltyenabled"`
+	Criterionbreakdown sql.NullString `json:"criterionbreakdown"`
 }
 
 // Case Study Query 1: Assignment scores and feedback for student
@@ -93,6 +106,11 @@ func (q *Queries) GetStudentGradesInCourse(ctx context.Context, arg GetStudentGr
 			&i.Assignment,
 			&i.Score,
 			&i.Feedback,
+			&i.Submissiontime,
+			&i.Deadline,
+			&i.Latepenaltyperday,
+			&i.Latepenaltyenabled,
+			&i.Criterionbreakdown,
 		); err != nil {
 			return nil, err
 		}
@@ -167,6 +185,8 @@ SELECT
     s.SubmissionTime,
     s.ContentData,
     a.Deadline,
+    a.LatePenaltyPerDay,
+    a.LatePenaltyEnabled,
     CASE 
         WHEN s.SubmissionTime > a.Deadline THEN 'LATE'
         ELSE 'ON TIME'
@@ -183,16 +203,18 @@ ORDER BY (e.Score IS NULL) DESC, s.SubmissionTime DESC
 `
 
 type GetSubmissionReportRow struct {
-	Assignmentid   int32          `json:"assignmentid"`
-	Assignmentname string         `json:"assignmentname"`
-	Studentname    string         `json:"studentname"`
-	Submissionid   int32          `json:"submissionid"`
-	Submissiontime sql.NullTime   `json:"submissiontime"`
-	Contentdata    string         `json:"contentdata"`
-	Deadline       time.Time      `json:"deadline"`
-	Timeliness     string         `json:"timeliness"`
-	Score          sql.NullString `json:"score"`
-	Gradedby       interface{}    `json:"gradedby"`
+	Assignmentid       int32          `json:"assignmentid"`
+	Assignmentname     string         `json:"assignmentname"`
+	Studentname        string         `json:"studentname"`
+	Submissionid       int32          `json:"submissionid"`
+	Submissiontime     sql.NullTime   `json:"submissiontime"`
+	Contentdata        string         `json:"contentdata"`
+	Deadline           time.Time      `json:"deadline"`
+	Latepenaltyperday  string         `json:"latepenaltyperday"`
+	Latepenaltyenabled bool           `json:"latepenaltyenabled"`
+	Timeliness         string         `json:"timeliness"`
+	Score              sql.NullString `json:"score"`
+	Gradedby           interface{}    `json:"gradedby"`
 }
 
 // Case Study Query 3: Full submission report with timeliness and grader details
@@ -213,6 +235,8 @@ func (q *Queries) GetSubmissionReport(ctx context.Context, courseid int32) ([]Ge
 			&i.Submissiontime,
 			&i.Contentdata,
 			&i.Deadline,
+			&i.Latepenaltyperday,
+			&i.Latepenaltyenabled,
 			&i.Timeliness,
 			&i.Score,
 			&i.Gradedby,
@@ -335,7 +359,9 @@ SELECT c.CourseCode,
        a.Deadline,
        s.SubmissionID,
        s.SubmissionTime,
-       e.Score
+       e.Score,
+       a.LatePenaltyPerDay,
+       a.LatePenaltyEnabled
 FROM Submission s
 JOIN Assignment a ON s.AssignmentID = a.AssignmentID
 JOIN Course c ON a.CourseID = c.CourseID
@@ -345,14 +371,16 @@ ORDER BY s.SubmissionTime DESC, s.SubmissionID DESC
 `
 
 type ListStudentSubmissionsByUserRow struct {
-	Coursecode     string         `json:"coursecode"`
-	Coursetitle    string         `json:"coursetitle"`
-	Assignmentid   int32          `json:"assignmentid"`
-	Assignmentname string         `json:"assignmentname"`
-	Deadline       time.Time      `json:"deadline"`
-	Submissionid   int32          `json:"submissionid"`
-	Submissiontime sql.NullTime   `json:"submissiontime"`
-	Score          sql.NullString `json:"score"`
+	Coursecode         string         `json:"coursecode"`
+	Coursetitle        string         `json:"coursetitle"`
+	Assignmentid       int32          `json:"assignmentid"`
+	Assignmentname     string         `json:"assignmentname"`
+	Deadline           time.Time      `json:"deadline"`
+	Submissionid       int32          `json:"submissionid"`
+	Submissiontime     sql.NullTime   `json:"submissiontime"`
+	Score              sql.NullString `json:"score"`
+	Latepenaltyperday  string         `json:"latepenaltyperday"`
+	Latepenaltyenabled bool           `json:"latepenaltyenabled"`
 }
 
 func (q *Queries) ListStudentSubmissionsByUser(ctx context.Context, userid int32) ([]ListStudentSubmissionsByUserRow, error) {
@@ -373,6 +401,8 @@ func (q *Queries) ListStudentSubmissionsByUser(ctx context.Context, userid int32
 			&i.Submissionid,
 			&i.Submissiontime,
 			&i.Score,
+			&i.Latepenaltyperday,
+			&i.Latepenaltyenabled,
 		); err != nil {
 			return nil, err
 		}

@@ -25,13 +25,15 @@ type Answerupvote struct {
 }
 
 type Assignment struct {
-	Assignmentid   int32          `json:"assignmentid"`
-	Title          string         `json:"title"`
-	Description    sql.NullString `json:"description"`
-	Deadline       time.Time      `json:"deadline"`
-	Formatrequired sql.NullString `json:"formatrequired"`
-	Courseid       int32          `json:"courseid"`
-	Rubricid       sql.NullInt32  `json:"rubricid"`
+	Assignmentid       int32          `json:"assignmentid"`
+	Title              string         `json:"title"`
+	Description        sql.NullString `json:"description"`
+	Deadline           time.Time      `json:"deadline"`
+	Formatrequired     sql.NullString `json:"formatrequired"`
+	Courseid           int32          `json:"courseid"`
+	Rubricid           sql.NullInt32  `json:"rubricid"`
+	Latepenaltyperday  string         `json:"latepenaltyperday"`
+	Latepenaltyenabled bool           `json:"latepenaltyenabled"`
 }
 
 type Assignmentbatch struct {
@@ -79,6 +81,13 @@ type Evaluation struct {
 	Score        string         `json:"score"`
 	Feedback     sql.NullString `json:"feedback"`
 	Userid       int32          `json:"userid"`
+}
+
+type Evaluationcriterionscore struct {
+	Submissionid int32          `json:"submissionid"`
+	Criterionid  int32          `json:"criterionid"`
+	Score        string         `json:"score"`
+	Feedback     sql.NullString `json:"feedback"`
 }
 
 type Notification struct {
@@ -134,6 +143,13 @@ type Rubric struct {
 	Title       string         `json:"title"`
 	Department  sql.NullString `json:"department"`
 	Description sql.NullString `json:"description"`
+}
+
+type Rubriccriterion struct {
+	Criterionid int32  `json:"criterionid"`
+	Rubricid    int32  `json:"rubricid"`
+	Title       string `json:"title"`
+	Maxpoints   string `json:"maxpoints"`
 }
 
 type Submission struct {

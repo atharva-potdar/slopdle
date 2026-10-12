@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"moodleplusplus/internal/db"
-	"moodleplusplus/internal/middleware"
 )
 
 type CreateQuestionRequest struct {
@@ -86,17 +85,7 @@ func (h *AppHandler) CreateQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := int32(0)
-	if ctxUserID, ok := middleware.GetUserID(r.Context()); ok {
-		userID = ctxUserID
-	} else if req.UserID != nil {
-		userID = *req.UserID
-	}
-
-	if userID == 0 {
-		writeError(w, http.StatusUnauthorized, "user authentication or userId required")
-		return
-	}
+	userID := h.callerID(r)
 
 	res, err := h.q.CreateQuestion(r.Context(), db.CreateQuestionParams{
 		Title:    req.Title,
@@ -138,17 +127,7 @@ func (h *AppHandler) CreateAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := int32(0)
-	if ctxUserID, ok := middleware.GetUserID(r.Context()); ok {
-		userID = ctxUserID
-	} else if req.UserID != nil {
-		userID = *req.UserID
-	}
-
-	if userID == 0 {
-		writeError(w, http.StatusUnauthorized, "user authentication or userId required")
-		return
-	}
+	userID := h.callerID(r)
 
 	res, err := h.q.CreateAnswer(r.Context(), db.CreateAnswerParams{
 		Body:       req.Body,

@@ -51,6 +51,8 @@ SELECT
     s.SubmissionTime,
     s.ContentData,
     a.Deadline,
+    a.LatePenaltyPerDay,
+    a.LatePenaltyEnabled,
     CASE 
         WHEN s.SubmissionTime > a.Deadline THEN 'LATE'
         ELSE 'ON TIME'
@@ -72,7 +74,15 @@ SELECT
     a.AssignmentID,
     a.Title AS Assignment, 
     e.Score, 
-    e.Feedback
+    e.Feedback,
+    s.SubmissionTime,
+    a.Deadline,
+    a.LatePenaltyPerDay,
+    a.LatePenaltyEnabled,
+    (SELECT GROUP_CONCAT(CONCAT(rc.Title, ' ', ecs.Score, '/', rc.MaxPoints) ORDER BY rc.CriterionID SEPARATOR ' • ')
+       FROM EvaluationCriterionScore ecs
+       JOIN RubricCriterion rc ON rc.CriterionID = ecs.CriterionID
+       WHERE ecs.SubmissionID = s.SubmissionID) AS CriterionBreakdown
 FROM User u
 JOIN Submission s ON u.UserID = s.UserID
 JOIN Assignment a ON s.AssignmentID = a.AssignmentID
@@ -97,7 +107,9 @@ SELECT c.CourseCode,
        a.Deadline,
        s.SubmissionID,
        s.SubmissionTime,
-       e.Score
+       e.Score,
+       a.LatePenaltyPerDay,
+       a.LatePenaltyEnabled
 FROM Submission s
 JOIN Assignment a ON s.AssignmentID = a.AssignmentID
 JOIN Course c ON a.CourseID = c.CourseID
