@@ -28,6 +28,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      // ngrok free tier serves an interstitial warning page to browsers;
+      // this header bypasses it for API calls. Dev tunnels only.
+      ...(import.meta.env.DEV ? { 'ngrok-skip-browser-warning': 'true' } : {}),
       ...options.headers,
     },
   });
@@ -368,6 +371,10 @@ export const api = {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', `${BASE_URL}/assignments/${assignmentId}/upload`);
       xhr.withCredentials = true;
+      // Same ngrok free-tier bypass as request() above (dev tunnels only).
+      if (import.meta.env.DEV) {
+        xhr.setRequestHeader('ngrok-skip-browser-warning', 'true');
+      }
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
       };
