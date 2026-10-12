@@ -97,6 +97,8 @@ type Notification struct {
 	Isread         sql.NullBool   `json:"isread"`
 	Createdat      sql.NullTime   `json:"createdat"`
 	Userid         int32          `json:"userid"`
+	Intenttype     sql.NullString `json:"intenttype"`
+	Intentid       sql.NullInt32  `json:"intentid"`
 }
 
 type Prerequisite struct {

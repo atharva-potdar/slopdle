@@ -7,6 +7,7 @@
   export let currentRole: string;
   export let enrollments: any[] = [];
   export let onNavigate: (tab: string, courseId?: number, assignmentId?: number) => void;
+  export let refreshKey: number = 0;
 
   let attendance: AttendanceSummary | null = null;
   let grades: StudentGradeItem[] = [];
@@ -27,7 +28,7 @@
       .map(e => e.courseid)
   );
 
-  $: if (currentUser && selectedCourseId) {
+  $: if (currentUser && selectedCourseId && refreshKey >= 0) {
     loadDashboardData();
   }
 
@@ -58,7 +59,7 @@
     if (!message || enrolledStudents.length === 0) return;
     try {
       await Promise.all(
-        enrolledStudents.map(s => api.createNotification(s.userid, message, 'Announcement'))
+        enrolledStudents.map(s => api.createNotification(s.userid, message, 'Announcement', 'announcement', selectedCourseId))
       );
       announcementStatus = `Announcement sent to ${enrolledStudents.length} students.`;
       announcementMsg = '';
@@ -78,7 +79,16 @@
     return new Date(d).toISOString().split('T')[0];
   }
 
-  // Active work first (deadline order from API), completed greyed at the end.
+  // Active work first (deadline order from API), recent completed greyed
+  // at the end. Old completed work (>14 days) is hidden to cut noise.
+  const RECENT_DAYS = 14;
+  function isRecentCompleted(s: any): boolean {
+    const t = s.submissiontime?.Time;
+    if (!t) return true;
+    return Date.now() - new Date(t).getTime() < RECENT_DAYS * 24 * 3600 * 1000;
+  }
+  $: recentCompleted = myCompleted.filter(isRecentCompleted);
+  $: hiddenCompletedCount = myCompleted.length - recentCompleted.length;
   $: dashboardRows = [
     ...pendingAssignments.map((p: any) => ({
       coursecode: p.coursecode,
@@ -92,7 +102,7 @@
       score: null as string | null,
       submittedOn: null as string | null,
     })),
-    ...myCompleted.map((s) => ({
+    ...recentCompleted.map((s) => ({
       coursecode: s.coursecode,
       courseid: null as number | null,
       assignmentid: s.assignmentid,
@@ -102,7 +112,7 @@
       done: true,
       late: !!s.submissiontime?.Time && !!s.deadline &&
         new Date(s.submissiontime.Time).getTime() > new Date(s.deadline).getTime(),
-      score: s.effectivescore ?? s.score?.String ?? null,
+      score: s.effectivescore ?? (s.score?.String || null),
       submittedOn: s.submissiontime?.Time ? fmtDate(s.submissiontime.Time) : null,
     })),
   ];
@@ -166,7 +176,11 @@
       <div class="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
         <div>
           <h2 class="text-sm font-semibold text-zinc-100">Course Assignments</h2>
-          <p class="text-xs text-zinc-500">Submissions requiring technical format verification</p>
+          <p class="text-xs text-zinc-500">
+            Submissions requiring technical format verification{#if hiddenCompletedCount > 0}
+              <span class="font-mono"> • {hiddenCompletedCount} older completed hidden</span>
+            {/if}
+          </p>
         </div>
         <button
           on:click={() => onNavigate('assignments')}

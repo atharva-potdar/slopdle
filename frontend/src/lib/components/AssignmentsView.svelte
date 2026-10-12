@@ -1,14 +1,17 @@
 <script lang="ts">
   import { ExternalLink } from 'lucide-svelte';
-  import { 
-    api, type Assignment, type SubmissionReportItem, 
-    type StudentGradeItem, type PendingStudent, type User, type Rubric 
+  import {
+    api, nullStr, nullStrIds,
+    type Assignment, type SubmissionReportItem,
+    type StudentGradeItem, type PendingStudent, type User, type Rubric
   } from '../api';
 
   export let currentUser: User;
   export let selectedCourseId: number;
   export let currentRole: string;
   export let focus: { id: number; n: number } | null = null;
+  export let tabFocus: { tab: string; n: number } | null = null;
+  let consumedTabFocusN = 0;
 
   let assignments: Assignment[] = [];
   let rubrics: Rubric[] = [];
@@ -97,6 +100,21 @@
     activeTab = 'assignments';
   }
 
+  // Deep-link from notifications: land on the relevant subtab for this role.
+  $: {
+    const t = tabFocus;
+    if (t && t.n !== consumedTabFocusN) {
+      consumedTabFocusN = t.n;
+      if (t.tab === 'assignments') {
+        activeTab = 'assignments';
+      } else if (t.tab === 'grades' && !isTeacher) {
+        activeTab = 'grades';
+      } else if ((t.tab === 'report' || t.tab === 'pending') && isTeacher) {
+        activeTab = t.tab;
+      }
+    }
+  }
+
   $: if (currentUser && selectedCourseId) {
     loadInitialData();
   }
@@ -117,7 +135,11 @@
       }
     }
     if (assignments.length > 0) {
-      selectedAssignmentId = assignments[0].assignmentid;
+      // Preserve an explicit selection (deep-link focus, user pick) across
+      // reloads; concurrent loads must not clobber it back to the first row.
+      if (!assignments.some((a) => a.assignmentid === selectedAssignmentId)) {
+        selectedAssignmentId = assignments[0].assignmentid;
+      }
       await loadTabReports();
     } else {
       selectedAssignmentId = 0;
@@ -254,7 +276,7 @@
     const payload = {
       title: newAssignTitle,
       description: newAssignDesc,
-      deadline: new Date(newAssignDeadline).toISOString(),
+      deadline: new Date(newAssignDeadline + ':00Z').toISOString(),
       formatRequired: newAssignFormat,
       rubricId: newAssignRubricId || null,
       batchIds: newAssignBatchIds,
@@ -303,7 +325,7 @@
     newAssignDeadline = a.deadline ? new Date(a.deadline).toISOString().slice(0, 16) : '';
     newAssignFormat = a.formatrequired?.String || 'PDF/ZIP';
     newAssignRubricId = a.rubricid?.Valid ? a.rubricid.Int32 : 0;
-    newAssignBatchIds = parseBatchIds(a.batchids as any);
+    newAssignBatchIds = parseBatchIds(a.batchids);
     newAssignPenalty = a.latepenaltyperday ? parseFloat(a.latepenaltyperday) : 10;
     newAssignPenaltyEnabled = a.latepenaltyenabled ?? true;
     showCreateModal = true;
@@ -378,35 +400,33 @@
       }
       showRubricModal = false;
       rubrics = await api.getRubrics();
+      // Assignment cards show rubric titles; refresh them too.
+      await loadInitialData();
     } catch (err: any) {
       alert(err.message);
     }
   }
 
-  function parseBatchIds(s: string | null | undefined): number[] {
-    if (!s) return [];
-    return s
-      .split(',')
-      .map((x) => parseInt(x.trim()))
-      .filter((x) => !isNaN(x));
+  function parseBatchIds(s: string | { String: string; Valid: boolean } | null | undefined): number[] {
+    return nullStrIds(s as any);
   }
 
-  function getBatchNames(s: string | null | undefined): string[] {
-    if (!s) return [];
-    return s
-      .split(',')
-      .map((x) => x.trim())
-      .filter((x) => x.length > 0);
-  }
+  // Reactive: template reads this set so status updates when submissions load.
+  $: submittedIds = new Set<number>(mySubmissions.map((s: any) => s.assignmentid));
 
-  function isSubmitted(aid: number): boolean {
-    return mySubmissions.some((s: any) => s.assignmentid === aid);
+  function isSubmitted(ids: Set<number>, aid: number): boolean {
+    return ids.has(aid);
   }
 
   function isUrl(s: string | null | undefined): boolean {
     if (!s) return false;
     const t = s.trim().toLowerCase();
-    return t.startsWith('http://') || t.startsWith('https://');
+    return t.startsWith('http://') || t.startsWith('https://') || t.startsWith('/');
+  }
+
+  function isPdf(s: string | null | undefined): boolean {
+    if (!s) return false;
+    return s.trim().toLowerCase().split(/[?#]/)[0].endsWith('.pdf');
   }
 </script>
 
@@ -507,13 +527,13 @@
 
             <div class="mt-4 pt-3 border-t border-zinc-800/60 text-xs text-zinc-500 font-mono space-y-1">
               <div>Due: {new Date(a.deadline).toISOString().replace('T', ' ').slice(0, 16)}</div>
-              {#if a.batchnames}
-                <div class="text-zinc-400">Batches: {a.batchnames}</div>
+              {#if nullStr(a.batchnames)}
+                <div class="text-zinc-400">Batches: {nullStr(a.batchnames)}</div>
               {:else}
                 <div class="text-zinc-400">Batches: All</div>
               {/if}
               {#if !isTeacher}
-                <div class="text-zinc-200">Status: {isSubmitted(a.assignmentid) ? 'Submitted' : 'Not submitted'}</div>
+                <div class="text-zinc-200">Status: {isSubmitted(submittedIds, a.assignmentid) ? 'Submitted' : 'Not submitted'}</div>
               {/if}
             </div>
           </div>
@@ -589,6 +609,9 @@
                 <td class="p-4 text-zinc-300">{rep.studentName}</td>
                 <td class="p-4 max-w-[12rem]">
                   {#if isUrl(rep.content)}
+                    <span class="font-mono text-[9px] uppercase px-1 py-0.5 rounded border border-zinc-800 bg-zinc-950 text-zinc-500 mr-1.5">
+                      {isPdf(rep.content) ? 'PDF' : 'Link'}
+                    </span>
                     <a
                       href={rep.content}
                       target="_blank"
@@ -611,7 +634,7 @@
                 </td>
                 <td class="p-4 font-mono font-medium text-zinc-100">{rep.score || 'Ungraded'}</td>
                 <td class="p-4 font-mono text-[11px] {rep.daysLate > 0 ? 'text-red-400' : 'text-zinc-500'}">
-                  {rep.daysLate > 0 ? `${rep.daysLate}d × ${parseFloat(rep.penaltyPerDay || '0')}% −${rep.penaltyApplied}` : '—'}
+                  {rep.daysLate > 0 ? `${rep.daysLate}d × ${parseFloat(rep.penaltyPerDay || '0')}%${rep.penaltyApplied ? ` −${rep.penaltyApplied}` : ''}` : '—'}
                 </td>
                 <td class="p-4 font-mono font-medium text-zinc-100">{rep.effectiveScore || 'Ungraded'}</td>
                 <td class="p-4 text-zinc-400">{rep.gradedBy}</td>
@@ -831,7 +854,22 @@
         {#if gradingContent}
           <div class="rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
             <div class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-1.5">Submitted work</div>
-            {#if isUrl(gradingContent)}
+            {#if isPdf(gradingContent) && isUrl(gradingContent)}
+              <iframe
+                src={gradingContent}
+                title="Submission preview"
+                class="w-full h-72 rounded border border-zinc-800 bg-white"
+              ></iframe>
+              <a
+                href={gradingContent}
+                target="_blank"
+                rel="noreferrer"
+                class="mt-2 inline-flex items-center gap-1.5 text-xs text-zinc-100 hover:text-white underline underline-offset-2 break-all"
+              >
+                <ExternalLink class="w-3.5 h-3.5 shrink-0" />
+                <span class="break-all">Open full PDF</span>
+              </a>
+            {:else if isUrl(gradingContent)}
               <a
                 href={gradingContent}
                 target="_blank"

@@ -1,5 +1,5 @@
 -- name: GetUserNotifications :many
-SELECT NotificationID, Message, Type, IsRead, CreatedAt, UserID
+SELECT NotificationID, Message, Type, IsRead, CreatedAt, UserID, IntentType, IntentID
 FROM Notification
 WHERE UserID = ?
 ORDER BY CreatedAt DESC
@@ -11,8 +11,8 @@ FROM Notification
 WHERE UserID = ? AND IsRead = FALSE;
 
 -- name: CreateNotification :execresult
-INSERT INTO Notification (Message, Type, IsRead, CreatedAt, UserID)
-VALUES (?, ?, FALSE, NOW(), ?);
+INSERT INTO Notification (Message, Type, IsRead, CreatedAt, UserID, IntentType, IntentID)
+VALUES (?, ?, FALSE, NOW(), ?, ?, ?);
 
 -- name: MarkNotificationAsRead :exec
 UPDATE Notification

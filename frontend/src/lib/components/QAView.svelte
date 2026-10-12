@@ -7,11 +7,22 @@
   export let selectedCourseId: number;
   export let currentRole: string;
   export let courseCode: string = '';
+  export let focus: { id: number; n: number } | null = null;
 
   let questions: Question[] = [];
   let selectedQuestionId: number | null = null;
   let activeQuestion: Question | null = null;
   let answers: Answer[] = [];
+  let consumedFocusN = 0;
+
+  // Deep-link from notifications: select the referenced thread.
+  $: {
+    const f = focus;
+    if (f && f.n !== consumedFocusN && questions.some((q) => q.questionid === f.id)) {
+      consumedFocusN = f.n;
+      selectQuestion(f.id);
+    }
+  }
   let profileUserId: number | null = null;
 
   // Form states
@@ -76,6 +87,7 @@
     try {
       await api.createAnswer(selectedQuestionId, newAnswerBody);
       newAnswerBody = '';
+      questions = await api.getQuestions(selectedCourseId);
       await selectQuestion(selectedQuestionId);
     } catch (err: any) {
       alert(err.message);
@@ -96,6 +108,7 @@
   async function handleToggleOfficial(answerId: number, currentStatus: boolean) {
     try {
       await api.markOfficialAnswer(answerId, !currentStatus);
+      questions = await api.getQuestions(selectedCourseId);
       if (selectedQuestionId) {
         await selectQuestion(selectedQuestionId);
       }
@@ -156,7 +169,12 @@
                 tabindex="0"
                 class="hover:text-zinc-100 hover:underline underline-offset-2 cursor-pointer"
                 on:click={(e) => openProfile(e, q.userid)}
-                on:keydown={(e) => { if (e.key === 'Enter') profileUserId = q.userid; }}
+                on:keydown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    profileUserId = q.userid;
+                  }
+                }}
               >
                 {q.firstname} {q.lastname}
               </span>

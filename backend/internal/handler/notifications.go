@@ -11,9 +11,11 @@ import (
 )
 
 type CreateNotificationRequest struct {
-	UserID  int32  `json:"userId"`
-	Message string `json:"message"`
-	Type    string `json:"type"`
+	UserID     int32  `json:"userId"`
+	Message    string `json:"message"`
+	Type       string `json:"type"`
+	IntentType string `json:"intentType"`
+	IntentID   *int32 `json:"intentId"`
 }
 
 func (h *AppHandler) GetNotifications(w http.ResponseWriter, r *http.Request) {
@@ -52,9 +54,11 @@ func (h *AppHandler) CreateNotification(w http.ResponseWriter, r *http.Request) 
 	}
 
 	res, err := h.q.CreateNotification(r.Context(), db.CreateNotificationParams{
-		Message: req.Message,
-		Type:    sql.NullString{String: req.Type, Valid: req.Type != ""},
-		Userid:  req.UserID,
+		Message:    req.Message,
+		Type:       sql.NullString{String: req.Type, Valid: req.Type != ""},
+		Userid:     req.UserID,
+		Intenttype: sql.NullString{String: req.IntentType, Valid: req.IntentType != ""},
+		Intentid:   toNullInt32(req.IntentID),
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

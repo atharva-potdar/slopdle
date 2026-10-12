@@ -73,8 +73,8 @@
     try {
       await api.createSession(
         newSessionBatchId,
-        new Date(newSessionStart).toISOString(),
-        new Date(newSessionEnd).toISOString(),
+        new Date(newSessionStart + ':00Z').toISOString(),
+        new Date(newSessionEnd + ':00Z').toISOString(),
         newSessionRoom
       );
       newSessionStart = '';

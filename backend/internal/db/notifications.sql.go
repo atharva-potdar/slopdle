@@ -11,18 +11,26 @@ import (
 )
 
 const createNotification = `-- name: CreateNotification :execresult
-INSERT INTO Notification (Message, Type, IsRead, CreatedAt, UserID)
-VALUES (?, ?, FALSE, NOW(), ?)
+INSERT INTO Notification (Message, Type, IsRead, CreatedAt, UserID, IntentType, IntentID)
+VALUES (?, ?, FALSE, NOW(), ?, ?, ?)
 `
 
 type CreateNotificationParams struct {
-	Message string         `json:"message"`
-	Type    sql.NullString `json:"type"`
-	Userid  int32          `json:"userid"`
+	Message    string         `json:"message"`
+	Type       sql.NullString `json:"type"`
+	Userid     int32          `json:"userid"`
+	Intenttype sql.NullString `json:"intenttype"`
+	Intentid   sql.NullInt32  `json:"intentid"`
 }
 
 func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotificationParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createNotification, arg.Message, arg.Type, arg.Userid)
+	return q.db.ExecContext(ctx, createNotification,
+		arg.Message,
+		arg.Type,
+		arg.Userid,
+		arg.Intenttype,
+		arg.Intentid,
+	)
 }
 
 const getUnreadNotificationsCount = `-- name: GetUnreadNotificationsCount :one
@@ -39,7 +47,7 @@ func (q *Queries) GetUnreadNotificationsCount(ctx context.Context, userid int32)
 }
 
 const getUserNotifications = `-- name: GetUserNotifications :many
-SELECT NotificationID, Message, Type, IsRead, CreatedAt, UserID
+SELECT NotificationID, Message, Type, IsRead, CreatedAt, UserID, IntentType, IntentID
 FROM Notification
 WHERE UserID = ?
 ORDER BY CreatedAt DESC
@@ -62,6 +70,8 @@ func (q *Queries) GetUserNotifications(ctx context.Context, userid int32) ([]Not
 			&i.Isread,
 			&i.Createdat,
 			&i.Userid,
+			&i.Intenttype,
+			&i.Intentid,
 		); err != nil {
 			return nil, err
 		}

@@ -254,11 +254,13 @@ func (h *AppHandler) EvaluateSubmission(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Notify student of graded submission
-	msg := fmt.Sprintf("Your submission for '%s' has been evaluated: Score %.2f", sub.Assignmenttitle, req.Score)
+	msg := fmt.Sprintf("Your submission for '%s' has been evaluated: Score %.2f", sub.Assignmenttitle, rawScore)
 	h.q.CreateNotification(r.Context(), db.CreateNotificationParams{
-		Message: msg,
-		Type:    sql.NullString{String: "Grade", Valid: true},
-		Userid:  sub.Userid,
+		Message:    msg,
+		Type:       sql.NullString{String: "Grade", Valid: true},
+		Userid:     sub.Userid,
+		Intenttype: sql.NullString{String: "grade", Valid: true},
+		Intentid:   sql.NullInt32{Int32: submissionID, Valid: true},
 	})
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "evaluation saved"})

@@ -1,6 +1,27 @@
 // Typed API client for Moodle++ Go backend
 const BASE_URL = '/api';
 
+// sqlc NullString serializes as { String, Valid }. Helpers unwrap it.
+export interface NullString {
+  String: string;
+  Valid: boolean;
+}
+
+export function nullStr(v: NullString | string | null | undefined): string | null {
+  if (!v) return null;
+  if (typeof v === 'string') return v || null;
+  return v.Valid && v.String ? v.String : null;
+}
+
+export function nullStrIds(v: NullString | string | null | undefined): number[] {
+  const s = nullStr(v);
+  if (!s) return [];
+  return s
+    .split(',')
+    .map((x) => parseInt(x.trim()))
+    .filter((x) => !isNaN(x));
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
@@ -45,8 +66,8 @@ export interface Assignment {
   courseid: number;
   rubricid?: { Int32: number; Valid: boolean };
   rubrictitle?: { String: string; Valid: boolean };
-  batchids?: string | null;
-  batchnames?: string | null;
+  batchids?: NullString | null;
+  batchnames?: NullString | null;
   latepenaltyperday?: string;
   latepenaltyenabled?: boolean;
 }
@@ -132,8 +153,8 @@ export interface Resource {
   uploadedat?: { Time: string; Valid: boolean };
   categoryid: number;
   categoryname?: string;
-  batchids?: string | null;
-  batchnames?: string | null;
+  batchids?: NullString | null;
+  batchnames?: NullString | null;
 }
 
 export interface StudentSubmission {
@@ -182,6 +203,26 @@ export interface NotificationItem {
   isread?: { Bool: boolean; Valid: boolean };
   createdat?: { Time: string; Valid: boolean };
   userid: number;
+  intenttype?: { String: string; Valid: boolean };
+  intentid?: { Int32: number; Valid: boolean };
+}
+
+export interface ParsedIntent {
+  tab: 'dashboard' | 'courses' | 'assignments' | 'qa';
+  courseId?: number;
+  assignmentId?: number;
+  questionId?: number;
+}
+
+// Intent targets: announcement -> course, assignment -> assignment,
+// grade -> submission, answer -> question. Course is resolved lazily
+// by the caller (one fetch) except announcements which carry it.
+export function parseIntent(n: NotificationItem): { kind: string; id: number } | null {
+  const t = n.intenttype?.Valid ? n.intenttype.String : '';
+  const id = n.intentid?.Valid ? n.intentid.Int32 : null;
+  if (!t || id == null) return null;
+  if (!['announcement', 'assignment', 'grade', 'answer'].includes(t)) return null;
+  return { kind: t, id };
 }
 
 export interface Rubric {
@@ -318,6 +359,7 @@ export const api = {
       body: JSON.stringify({ contentData }),
     }),
   getSubmissions: (assignmentId: number) => request<any[]>(`/assignments/${assignmentId}/submissions`),
+  getSubmission: (id: number) => request<any>(`/submissions/${id}`),
   evaluateSubmission: (submissionId: number, score: number, feedback: string, graderId?: number, criteria?: CriterionGradeInput[]) =>
     request(`/submissions/${submissionId}/evaluate`, {
       method: 'POST',
@@ -380,10 +422,10 @@ export const api = {
     request(`/notifications/${id}/read${userId ? `?userId=${userId}` : ''}`, { method: 'PUT' }),
   markAllNotificationsRead: (userId: number) =>
     request(`/notifications/read-all?userId=${userId}`, { method: 'PUT' }),
-  createNotification: (userId: number, message: string, type = 'Announcement') =>
+  createNotification: (userId: number, message: string, type = 'Announcement', intentType?: string, intentId?: number) =>
     request('/notifications', {
       method: 'POST',
-      body: JSON.stringify({ userId, message, type }),
+      body: JSON.stringify({ userId, message, type, intentType, intentId }),
     }),
 
   // Rubrics

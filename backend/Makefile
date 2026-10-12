@@ -16,8 +16,10 @@ migrate:
 	mariadb -u atharva-potdar test < ../db/migrations/003_batch_scoping.up.sql
 	mariadb -u atharva-potdar test < ../db/migrations/004_late_penalty.up.sql
 	mariadb -u atharva-potdar test < ../db/migrations/005_rubric_criteria.up.sql
+	mariadb -u atharva-potdar test < ../db/migrations/006_notification_intent.up.sql
 
 migrate-down:
+	mariadb -u atharva-potdar test < ../db/migrations/006_notification_intent.down.sql
 	mariadb -u atharva-potdar test < ../db/migrations/005_rubric_criteria.down.sql
 	mariadb -u atharva-potdar test < ../db/migrations/004_late_penalty.down.sql
 	mariadb -u atharva-potdar test < ../db/migrations/003_batch_scoping.down.sql

@@ -6,6 +6,7 @@ sql:
       - "../db/migrations/003_batch_scoping.up.sql"
       - "../db/migrations/004_late_penalty.up.sql"
       - "../db/migrations/005_rubric_criteria.up.sql"
+      - "../db/migrations/006_notification_intent.up.sql"
     queries: "../db/queries"
     gen:
       go:

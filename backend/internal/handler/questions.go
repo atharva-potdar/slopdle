@@ -144,9 +144,11 @@ func (h *AppHandler) CreateAnswer(w http.ResponseWriter, r *http.Request) {
 	// Notify question author
 	if question.Userid != userID {
 		h.q.CreateNotification(r.Context(), db.CreateNotificationParams{
-			Message: fmt.Sprintf("Your question '%s' received a new answer.", question.Title),
-			Type:    sql.NullString{String: "Q&A Reply", Valid: true},
-			Userid:  question.Userid,
+			Message:    fmt.Sprintf("Your question '%s' received a new answer.", question.Title),
+			Type:       sql.NullString{String: "Q&A Reply", Valid: true},
+			Userid:     question.Userid,
+			Intenttype: sql.NullString{String: "answer", Valid: true},
+			Intentid:   sql.NullInt32{Int32: questionID, Valid: true},
 		})
 	}
 

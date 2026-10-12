@@ -16,6 +16,7 @@
   export let onMarkRead: (id: number) => void;
   export let onMarkAllRead: () => void = () => {};
   export let onRefresh: () => void = () => {};
+  export let onOpen: (n: NotificationItem) => void = (n) => onMarkRead(n.notificationid);
 
   let showUserDropdown = false;
   let showNotifDropdown = false;
@@ -173,7 +174,7 @@
                   {#each notifications as notif}
                     <button
                       class="w-full text-left p-2.5 hover:bg-zinc-900/60 rounded transition-colors flex items-start justify-between text-xs {notif.isread?.Bool === false ? 'text-zinc-100' : 'text-zinc-400'}"
-                      on:click={() => onMarkRead(notif.notificationid)}
+                      on:click={() => onOpen(notif)}
                     >
                       <div class="pr-2">
                         <span class="font-mono text-[10px] uppercase text-zinc-500">{notif.type?.String || 'Alert'}</span>

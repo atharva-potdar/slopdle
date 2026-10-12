@@ -56,3 +56,10 @@ func parseFloat(v any) (float64, bool) {
 		return 0, false
 	}
 }
+
+func toNullInt32(v *int32) sql.NullInt32 {
+	if v == nil {
+		return sql.NullInt32{}
+	}
+	return sql.NullInt32{Int32: *v, Valid: true}
+}

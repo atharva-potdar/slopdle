@@ -82,10 +82,10 @@ INSERT INTO Enrollment (UserID, CourseID, RoleID, BatchID) VALUES
 (3, 4, 2, 7),
 (4, 1, 3, 1),
 (4, 2, 3, 3),
-(5, 1, 2, 1),
-(5, 2, 2, 3),
-(5, 3, 2, 5),
-(5, 5, 2, 9),
+(5, 1, 2, 2),
+(5, 2, 2, 4),
+(5, 3, 2, 6),
+(5, 5, 2, 10),
 (6, 1, 1, 1),
 (6, 5, 1, 9),
 (7, 3, 1, 5),
@@ -94,9 +94,9 @@ INSERT INTO Enrollment (UserID, CourseID, RoleID, BatchID) VALUES
 (8, 2, 2, 3),
 (8, 3, 2, 5),
 (8, 6, 2, 11),
-(9, 1, 2, 1),
-(9, 2, 2, 3),
-(9, 3, 2, 5),
+(9, 1, 2, 2),
+(9, 2, 2, 4),
+(9, 3, 2, 6),
 (10, 1, 2, 1),
 (10, 2, 2, 3),
 (10, 3, 2, 5),
@@ -104,18 +104,18 @@ INSERT INTO Enrollment (UserID, CourseID, RoleID, BatchID) VALUES
 (11, 2, 2, 3),
 (11, 3, 2, 5),
 (11, 4, 2, 7),
-(12, 1, 2, 1),
-(12, 2, 2, 3),
-(12, 3, 2, 5),
+(12, 1, 2, 2),
+(12, 2, 2, 4),
+(12, 3, 2, 6),
 (13, 1, 3, 1),
 (13, 2, 3, 3),
 (14, 1, 2, 1),
 (14, 2, 2, 3),
 (14, 3, 2, 5),
-(15, 1, 2, 1),
-(15, 2, 2, 3),
-(15, 3, 2, 5),
-(15, 6, 2, 11)
+(15, 1, 2, 2),
+(15, 2, 2, 4),
+(15, 3, 2, 6),
+(15, 6, 2, 12)
 ON DUPLICATE KEY UPDATE RoleID=VALUES(RoleID), BatchID=VALUES(BatchID);
 
 -- Assignments
@@ -226,7 +226,10 @@ INSERT INTO Submission (SubmissionID, SubmissionTime, ContentData, AssignmentID,
 (82, '2026-10-08 21:33:38', 'submission_data_82.zip', 16, 8),
 (83, '2026-10-01 21:33:38', 'submission_data_83.zip', 16, 15),
 (84, '2026-10-05 21:33:38', 'submission_data_84.zip', 18, 8),
-(85, '2026-09-28 21:33:38', 'submission_data_85.zip', 18, 15)
+(85, '2026-09-28 21:33:38', 'submission_data_85.zip', 18, 15),
+(86, '2026-10-10 21:33:38', 'https://github.com/ada-lovelace/analytical-engine', 1, 8),
+(87, '2026-10-11 21:33:38', '/files/lec1.pdf', 2, 9),
+(88, '2026-10-10 21:33:38', 'https://github.com/margaret-hamilton/apollo', 1, 10)
 ON DUPLICATE KEY UPDATE ContentData=VALUES(ContentData);
 
 -- Evaluations
@@ -291,8 +294,23 @@ INSERT INTO Evaluation (SubmissionID, Score, Feedback, UserID) VALUES
 (80, 84.66, 'Good work, keep it up.', 13),
 (82, 97.62, 'Good work, keep it up.', 1),
 (83, 56.11, 'Good work, keep it up.', 4),
-(84, 64.73, 'Good work, keep it up.', 1)
+(84, 64.73, 'Good work, keep it up.', 1),
+(86, 80.00, 'Strong implementation; document edge cases.', 6)
 ON DUPLICATE KEY UPDATE Score=VALUES(Score);
+
+-- Rubric criteria (Standard Code Rubric) + per-criterion scores for submission 86.
+-- Criterion sum 35+25+20 = 80/100 matches the stored evaluation above.
+INSERT INTO RubricCriterion (CriterionID, RubricID, Title, MaxPoints) VALUES 
+(1, 1, 'Correctness', 40),
+(2, 1, 'Quality', 30),
+(3, 1, 'Documentation', 30)
+ON DUPLICATE KEY UPDATE Title=VALUES(Title), MaxPoints=VALUES(MaxPoints);
+
+INSERT INTO EvaluationCriterionScore (SubmissionID, CriterionID, Score, Feedback) VALUES 
+(86, 1, 35.00, 'All cases pass.'),
+(86, 2, 25.00, 'Clean structure.'),
+(86, 3, 20.00, 'Add edge-case notes.')
+ON DUPLICATE KEY UPDATE Score=VALUES(Score), Feedback=VALUES(Feedback);
 
 -- Questions & Answers
 INSERT INTO Question (QuestionID, Title, Body, CourseID, UserID) VALUES 
@@ -369,7 +387,11 @@ INSERT INTO ClassSession (SessionID, StartTime, EndTime, RoomLocation, BatchID) 
 (13, '2026-10-07 10:00:00', '2026-10-07 11:30:00', 'Room 203', 1),
 (14, '2026-10-07 14:00:00', '2026-10-07 15:30:00', 'Room 204', 5),
 (15, '2026-10-08 10:00:00', '2026-10-08 11:30:00', 'Room 205', 7),
-(16, '2026-10-08 14:00:00', '2026-10-08 15:30:00', 'Room 206', 11)
+(16, '2026-10-08 14:00:00', '2026-10-08 15:30:00', 'Room 206', 11),
+(17, '2026-10-09 10:00:00', '2026-10-09 11:30:00', 'Room 301', 2),
+(18, '2026-10-09 14:00:00', '2026-10-09 15:30:00', 'Room 302', 4),
+(19, '2026-10-10 10:00:00', '2026-10-10 11:30:00', 'Room 303', 10),
+(20, '2026-10-10 14:00:00', '2026-10-10 15:30:00', 'Room 304', 12)
 ON DUPLICATE KEY UPDATE RoomLocation=VALUES(RoomLocation);
 
 INSERT INTO Attendance (SessionID, UserID, Status) VALUES 
@@ -481,7 +503,7 @@ SELECT s.SessionID, e.UserID, 'Present'
 FROM ClassSession s
 JOIN Batch b ON s.BatchID = b.BatchID
 JOIN Enrollment e ON e.CourseID = b.CourseID AND e.BatchID = b.BatchID
-WHERE s.SessionID BETWEEN 11 AND 16
+WHERE s.SessionID BETWEEN 11 AND 20
 ON DUPLICATE KEY UPDATE Status=VALUES(Status);
 
 -- Resources & Categories
@@ -507,7 +529,19 @@ INSERT INTO Resource (ResourceID, Title, FileURL, CategoryID) VALUES
 (8, 'AI Project Brief', '/files/ai_project.pdf', 6),
 (9, 'Process Scheduling Slides', '/files/os_sched.pdf', 7),
 (10, 'Concurrency Notes', '/files/os_concurrency.pdf', 7),
-(11, 'TCP/IP Reference', '/files/net_tcpip.pdf', 8)
+(11, 'TCP/IP Reference', '/files/net_tcpip.pdf', 8),
+(12, 'CS101 Course Syllabus', '/files/syllabus.pdf', 9),
+(13, 'CS101 PYQ 2024', '/files/pyq.pdf', 10),
+(14, 'CS201 Course Syllabus', '/files/syllabus.pdf', 11),
+(15, 'CS201 PYQ 2024', '/files/pyq.pdf', 12),
+(16, 'CS301 Course Syllabus', '/files/syllabus.pdf', 13),
+(17, 'CS301 PYQ 2024', '/files/pyq.pdf', 14),
+(18, 'CS401 Course Syllabus', '/files/syllabus.pdf', 15),
+(19, 'CS401 PYQ 2024', '/files/pyq.pdf', 16),
+(20, 'CS501 Course Syllabus', '/files/syllabus.pdf', 17),
+(21, 'CS501 PYQ 2024', '/files/pyq.pdf', 18),
+(22, 'CS601 Course Syllabus', '/files/syllabus.pdf', 19),
+(23, 'CS601 PYQ 2024', '/files/pyq.pdf', 20)
 ON DUPLICATE KEY UPDATE Title=VALUES(Title);
 
 -- User Photos
@@ -520,13 +554,13 @@ INSERT INTO UserPhoto (UserID, PhotoURL) VALUES
 (7, 'https://api.dicebear.com/7.x/identicon/svg?seed=Grace')
 ON DUPLICATE KEY UPDATE PhotoURL=VALUES(PhotoURL);
 
--- Notifications
-INSERT INTO Notification (NotificationID, Message, Type, IsRead, UserID) VALUES 
-(1, 'Welcome to Moodle++! Your CS301 course materials are ready.', 'Info', 0, 2),
-(2, 'New assignment posted for CS301: Assignment 3.', 'Assignment', 0, 2),
-(3, 'Your submission for ''Assignment 1 for CS101'' has been evaluated.', 'Grade', 1, 2),
-(4, 'New answer posted in a thread you follow (CS201).', 'Q&A', 0, 5),
-(5, 'Attendance recorded for CS401 session #1.', 'Attendance', 1, 3),
-(6, 'Reminder: CS601 Assignment 1 is due soon.', 'Assignment', 0, 3)
-ON DUPLICATE KEY UPDATE Message=VALUES(Message);
+-- Notifications (with deep-link intents)
+INSERT INTO Notification (NotificationID, Message, Type, IsRead, UserID, IntentType, IntentID) VALUES 
+(1, 'Course materials for CS301 are ready — check the new Syllabus tab.', 'Announcement', 0, 2, 'announcement', 3),
+(2, 'New assignment posted for CS301: Stored Procedures & Triggers.', 'Assignment', 0, 2, 'assignment', 9),
+(3, 'Your submission for ''Python Basics: Temperature Converter'' has been evaluated.', 'Grade', 1, 2, 'grade', 1),
+(4, 'Grace Hopper answered ''What causes a deadlock?''.', 'Q&A', 0, 5, 'answer', 14),
+(5, 'Attendance recorded for CS401 session #1.', 'Attendance', 1, 3, NULL, NULL),
+(6, 'Reminder: ER Diagram & Normalization is due 2026-10-14.', 'Assignment', 0, 3, 'assignment', 8)
+ON DUPLICATE KEY UPDATE Message=VALUES(Message), IntentType=VALUES(IntentType), IntentID=VALUES(IntentID);
 

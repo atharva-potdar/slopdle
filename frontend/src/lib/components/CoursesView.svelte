@@ -2,17 +2,19 @@
   import { onMount } from 'svelte';
   import { ExternalLink, Plus, Trash2 } from 'lucide-svelte';
   import ProfileCard from './ProfileCard.svelte';
-  import { 
-    api, type Course, type ResourceCategory, 
+  import {
+    api, nullStr, type Course, type ResourceCategory,
     type Resource
   } from '../api';
 
   export let selectedCourseId: number;
   export let currentRole: string;
+  export let onCoursesChanged: () => void | Promise<void> = () => {};
 
   let courses: Course[] = [];
   let allCourses: Course[] = [];
-  let localCourseId: number = 0;  let categories: ResourceCategory[] = [];
+  let loadedFor: number = 0;
+  let categories: ResourceCategory[] = [];
   let resources: Resource[] = [];
   let batches: any[] = [];
   let prerequisites: any[] = [];
@@ -59,15 +61,17 @@
     activeTab = 'resources';
   }
   $: availablePrereqCourses = (allCourses.length > 0 ? allCourses : courses).filter(
-    c => c.courseid !== localCourseId && !prerequisites.some(p => p.requiredcourseid === c.courseid)
+    c => c.courseid !== selectedCourseId && !prerequisites.some(p => p.requiredcourseid === c.courseid)
   );
   $: if (availablePrereqCourses.length > 0 && !availablePrereqCourses.some(c => c.courseid === newPrereqCourseId)) {
     newPrereqCourseId = availablePrereqCourses[0].courseid;
   }
 
-  $: if (selectedCourseId && localCourseId === 0) {
-    localCourseId = selectedCourseId;
-    loadCourseDetails(localCourseId);
+  // Single source of truth: App's selectedCourseId. Reload when it changes.
+  $: if (selectedCourseId && selectedCourseId !== loadedFor) {
+    loadedFor = selectedCourseId;
+    selectedCategoryId = null;
+    loadCourseDetails(selectedCourseId);
   }
 
   onMount(async () => {
@@ -77,14 +81,9 @@
       allCourses = await api.getCatalog().catch(() => []);
       if (allUsers.length > 0) enrollStudentId = allUsers[0].userId;
     }
-    if (courses.length > 0 && localCourseId === 0) {
-      localCourseId = courses[0].courseid;
-      await loadCourseDetails(localCourseId);
-    }
   });
 
   async function loadCourseDetails(courseId: number) {
-    localCourseId = courseId;
     loadError = '';
     try {
       categories = await api.getCategories(courseId);
@@ -126,7 +125,7 @@
       newFileUrl = '';
       newResBatchIds = [];
       showUploadModal = false;
-      resources = await api.getResources(localCourseId);
+      resources = await api.getResources(selectedCourseId);
     } catch (err: any) {
       alert(err.message);
     }
@@ -141,6 +140,7 @@
       newCourseDesc = '';
       showCourseModal = false;
       courses = await api.getCourses();
+      await onCoursesChanged();
     } catch (err: any) {
       alert(err.message);
     }
@@ -149,10 +149,10 @@
   async function handleCreateBatch() {
     if (!newBatchName) return;
     try {
-      await api.createBatch(localCourseId, newBatchName);
+      await api.createBatch(selectedCourseId, newBatchName);
       newBatchName = '';
       showBatchModal = false;
-      batches = await api.getBatches(localCourseId);
+      batches = await api.getBatches(selectedCourseId);
     } catch (err: any) {
       alert(err.message);
     }
@@ -161,10 +161,10 @@
   async function handleCreateCategory() {
     if (!newCategoryName) return;
     try {
-      await api.createCategory(localCourseId, newCategoryName);
+      await api.createCategory(selectedCourseId, newCategoryName);
       newCategoryName = '';
       showCategoryModal = false;
-      categories = await api.getCategories(localCourseId);
+      categories = await api.getCategories(selectedCourseId);
       if (categories.length > 0) newCatId = categories[0].categoryid;
     } catch (err: any) {
       alert(err.message);
@@ -175,10 +175,10 @@
     enrollStatusMsg = 'Validating prerequisite grades in MariaDB...';
     enrollStatusErr = false;
     try {
-      await api.enroll(localCourseId, enrollStudentId, enrollRoleId);
+      await api.enroll(selectedCourseId, enrollStudentId, enrollRoleId);
       enrollStatusMsg = 'Prerequisite requirements satisfied. Enrolled successfully.';
       enrollStatusErr = false;
-      enrollments = await api.getEnrollments(localCourseId);
+      enrollments = await api.getEnrollments(selectedCourseId);
     } catch (err: any) {
       enrollStatusMsg = err.message;
       enrollStatusErr = true;
@@ -187,8 +187,8 @@
 
   async function handleUnenroll(userId: number) {
     try {
-      await api.unenroll(localCourseId, userId);
-      enrollments = await api.getEnrollments(localCourseId);
+      await api.unenroll(selectedCourseId, userId);
+      enrollments = await api.getEnrollments(selectedCourseId);
     } catch (err: any) {
       alert(err.message);
     }
@@ -197,7 +197,7 @@
   async function handleUpdateEnrollmentBatch(enrollmentId: number, batchId: number) {
     try {
       await api.updateEnrollmentBatch(enrollmentId, batchId || null);
-      enrollments = await api.getEnrollments(localCourseId);
+      enrollments = await api.getEnrollments(selectedCourseId);
     } catch (err: any) {
       alert(err.message);
     }
@@ -206,8 +206,8 @@
   async function handleAddPrereq() {
     if (!newPrereqCourseId) return;
     try {
-      await api.addPrerequisite(localCourseId, newPrereqCourseId, newPrereqMinGrade);
-      prerequisites = await api.getPrerequisites(localCourseId);
+      await api.addPrerequisite(selectedCourseId, newPrereqCourseId, newPrereqMinGrade);
+      prerequisites = await api.getPrerequisites(selectedCourseId);
     } catch (err: any) {
       alert(err.message);
     }
@@ -215,8 +215,8 @@
 
   async function handleDeletePrereq(requiredCourseId: number) {
     try {
-      await api.deletePrerequisite(localCourseId, requiredCourseId);
-      prerequisites = await api.getPrerequisites(localCourseId);
+      await api.deletePrerequisite(selectedCourseId, requiredCourseId);
+      prerequisites = await api.getPrerequisites(selectedCourseId);
     } catch (err: any) {
       alert(err.message);
     }
@@ -226,25 +226,19 @@
     if (!confirm('Delete this batch? Sessions and enrollments referencing it may block deletion.')) return;
     try {
       await api.deleteBatch(batchId);
-      batches = await api.getBatches(localCourseId);
+      batches = await api.getBatches(selectedCourseId);
+      // Roster rows show batch names; refresh them too.
+      if (isTeacher) enrollments = await api.getEnrollments(selectedCourseId).catch(() => enrollments);
     } catch (err: any) {
       alert(err.message);
     }
-  }
-
-  function parseBatchNames(s: string | null | undefined): string[] {
-    if (!s) return [];
-    return s
-      .split(',')
-      .map((x) => x.trim())
-      .filter((x) => x.length > 0);
   }
 
   async function handleDeleteResource(resourceId: number) {
     if (!confirm('Delete this resource?')) return;
     try {
       await api.deleteResource(resourceId);
-      resources = await api.getResources(localCourseId);
+      resources = await api.getResources(selectedCourseId);
     } catch (err: any) {
       alert(err.message);
     }
@@ -254,24 +248,13 @@
 
 <div class="space-y-6">
 
-  <!-- Header & Course Selector -->
+  <!-- Header (course switching lives in the navbar) -->
   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-5">
     <div>
       <h1 class="text-xl font-semibold tracking-tight text-zinc-100">Course & Resource Center</h1>
       <p class="text-xs text-zinc-500 mt-0.5">Categorized materials, section batches, and recursive prerequisite validation</p>
     </div>
 
-    <!-- Course Pills -->
-    <div class="inline-flex rounded-md border border-zinc-800 bg-zinc-950 p-1">
-      {#each courses as c}
-        <button
-          class="px-3 py-1 rounded text-xs font-mono font-medium transition-colors {localCourseId === c.courseid ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-zinc-100'}"
-          on:click={() => loadCourseDetails(c.courseid)}
-        >
-          {c.coursecode}
-        </button>
-      {/each}
-    </div>
     {#if isTeacher}
       <button
         on:click={() => showCourseModal = true}
@@ -289,8 +272,8 @@
       {loadError}
     </div>
   {/if}
-  {#if courses.find(c => c.courseid === localCourseId)}
-    {@const cur = courses.find(c => c.courseid === localCourseId)}
+  {#if courses.find(c => c.courseid === selectedCourseId)}
+    {@const cur = courses.find(c => c.courseid === selectedCourseId)}
     <div class="rounded-lg border border-zinc-800 bg-zinc-900/30 p-5">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -404,8 +387,8 @@
                   <span class="text-xs font-medium text-zinc-100">{res.title}</span>
                 </div>
                 <p class="text-[11px] text-zinc-500 font-mono mt-0.5 truncate max-w-md">{res.fileurl}</p>
-                {#if res.batchnames}
-                  <p class="text-[11px] text-zinc-400 mt-0.5">Batches: {res.batchnames}</p>
+                {#if nullStr(res.batchnames)}
+                  <p class="text-[11px] text-zinc-400 mt-0.5">Batches: {nullStr(res.batchnames)}</p>
                 {:else}
                   <p class="text-[11px] text-zinc-400 mt-0.5">Batches: All</p>
                 {/if}

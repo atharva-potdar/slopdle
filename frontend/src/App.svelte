@@ -6,7 +6,7 @@
   import AssignmentsView from './lib/components/AssignmentsView.svelte';
   import AttendanceView from './lib/components/AttendanceView.svelte';
   import QAView from './lib/components/QAView.svelte';
-  import { api, type User, type NotificationItem } from './lib/api';
+  import { api, parseIntent, type User, type NotificationItem } from './lib/api';
 
   let currentUser: User | null = null;
   let activeTab: string = 'dashboard';
@@ -17,6 +17,9 @@
   let selectedCourseId: number | null = null;
   let currentRole: string = '';
   let assignFocus: { id: number; n: number } | null = null;
+  let assignTabFocus: { tab: string; n: number } | null = null;
+  let questionFocus: { id: number; n: number } | null = null;
+  let dashboardRefresh: number = 0;
 
   // Login form state (prefilled with a seeded demo account)
   let loginEmail = 'alice.teacher@university.edu';
@@ -85,6 +88,11 @@
     currentRole = '';
     activeTab = 'dashboard';
     assignFocus = null;
+    assignTabFocus = null;
+    questionFocus = null;
+    loginEmail = 'alice.teacher@university.edu';
+    loginPassword = 'password123';
+    loginError = '';
   }
 
   async function refreshNotifications() {
@@ -105,6 +113,39 @@
     }
   }
 
+  async function handleNotificationOpen(n: NotificationItem) {
+    try {
+      await api.markNotificationRead(n.notificationid, currentUser?.userId);
+    } catch (err) {
+      console.error(err);
+    }
+    await refreshNotifications();
+    const intent = parseIntent(n);
+    if (!intent || !currentUser) return;
+    const now = Date.now();
+    try {
+      if (intent.kind === 'announcement') {
+        handleTabChange('dashboard', intent.id);
+      } else if (intent.kind === 'assignment') {
+        const a = await api.getAssignment(intent.id);
+        handleTabChange('assignments', a.courseid, intent.id);
+      } else if (intent.kind === 'grade') {
+        const sub = await api.getSubmission(intent.id);
+        handleTabChange('assignments', sub.courseid);
+        assignTabFocus = {
+          tab: currentRole === 'Student' ? 'grades' : 'report',
+          n: now,
+        };
+      } else if (intent.kind === 'answer') {
+        const res = await api.getQuestion(intent.id);
+        handleTabChange('qa', res.question.courseid);
+        questionFocus = { id: intent.id, n: now };
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   async function handleMarkAllNotificationsRead() {
     if (!currentUser) return;
     try {
@@ -117,12 +158,31 @@
 
   function handleTabChange(tab: string, courseId?: number, assignmentId?: number) {
     activeTab = tab;
+    // Clear all deep-link focuses: fresh ones are set after navigation by
+    // intent/deep-link callers, so stale ones can never fire on a later visit.
+    assignFocus = null;
+    assignTabFocus = null;
+    questionFocus = null;
     if (courseId && courseId !== selectedCourseId) {
       selectedCourseId = courseId;
       const enr = enrollments.find((e) => e.courseid === courseId);
       if (enr) currentRole = enr.rolename;
     }
     assignFocus = assignmentId ? { id: assignmentId, n: Date.now() } : null;
+    if (tab === 'dashboard') {
+      dashboardRefresh = Date.now();
+    }
+  }
+
+  async function refreshSession() {
+    try {
+      const meRes = await api.me();
+      enrollments = meRes.enrollments || [];
+      const enr = enrollments.find((e) => e.courseid === selectedCourseId);
+      if (enr) currentRole = enr.rolename;
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   function openProfile() {
@@ -259,21 +319,22 @@
     onMarkRead={handleMarkNotificationRead}
     onMarkAllRead={handleMarkAllNotificationsRead}
     onRefresh={refreshNotifications}
+    onOpen={handleNotificationOpen}
   />
 
   <!-- Main Workspace -->
   <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6">
     {#if currentUser && selectedCourseId}
       {#if activeTab === 'dashboard'}
-        <DashboardView {currentUser} {selectedCourseId} {currentRole} {enrollments} onNavigate={handleTabChange} />
+        <DashboardView {currentUser} {selectedCourseId} {currentRole} {enrollments} onNavigate={handleTabChange} refreshKey={dashboardRefresh} />
       {:else if activeTab === 'courses'}
-        <CoursesView {selectedCourseId} {currentRole} />
+        <CoursesView {selectedCourseId} {currentRole} onCoursesChanged={refreshSession} />
       {:else if activeTab === 'assignments'}
-        <AssignmentsView {currentUser} {selectedCourseId} {currentRole} focus={assignFocus} />
+        <AssignmentsView {currentUser} {selectedCourseId} {currentRole} focus={assignFocus} tabFocus={assignTabFocus} />
       {:else if activeTab === 'attendance'}
         <AttendanceView {currentUser} {selectedCourseId} {currentRole} />
       {:else if activeTab === 'qa'}
-        <QAView {currentUser} {selectedCourseId} {currentRole} courseCode={selectedCourseCode} />
+        <QAView {currentUser} {selectedCourseId} {currentRole} courseCode={selectedCourseCode} focus={questionFocus} />
       {/if}
     {:else}
       <div class="flex items-center justify-center py-24 text-zinc-500 text-xs font-mono">
