@@ -119,11 +119,12 @@ type Question struct {
 }
 
 type Resource struct {
-	Resourceid int32        `json:"resourceid"`
-	Title      string       `json:"title"`
-	Fileurl    string       `json:"fileurl"`
-	Uploadedat sql.NullTime `json:"uploadedat"`
-	Categoryid int32        `json:"categoryid"`
+	Resourceid int32          `json:"resourceid"`
+	Title      string         `json:"title"`
+	Fileurl    string         `json:"fileurl"`
+	Uploadedat sql.NullTime   `json:"uploadedat"`
+	Categoryid int32          `json:"categoryid"`
+	Filename   sql.NullString `json:"filename"`
 }
 
 type Resourcebatch struct {

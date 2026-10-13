@@ -74,6 +74,8 @@ func NewRouter(q *db.Queries, sqlDB *sql.DB) http.Handler {
 			api.Get("/courses/{id}/resources", h.ListResourcesByCourse)
 			api.Get("/categories/{id}/resources", h.ListResourcesByCategory)
 			api.Post("/categories/{id}/resources", h.CreateResource)
+			api.Post("/categories/{id}/resources/upload", h.UploadResource)
+			api.Get("/resources/{id}/file", h.ResourceFile)
 			api.Delete("/resources/{id}", h.DeleteResource)
 
 			// Assignments

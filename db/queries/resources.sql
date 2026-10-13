@@ -86,10 +86,13 @@ VALUES (?, ?, NOW(), ?);
 DELETE FROM Resource WHERE ResourceID = ?;
 
 -- name: GetResourceByID :one
-SELECT r.ResourceID, r.Title, r.FileURL, r.UploadedAt, r.CategoryID, c.CourseID
+SELECT r.ResourceID, r.Title, r.FileURL, r.UploadedAt, r.CategoryID, r.FileName, c.CourseID
 FROM Resource r
 JOIN ResourceCategory c ON r.CategoryID = c.CategoryID
 WHERE r.ResourceID = ? LIMIT 1;
+
+-- name: UpdateResourceFileURL :exec
+UPDATE Resource SET FileURL = ?, FileName = ? WHERE ResourceID = ?;
 
 -- name: AddResourceBatch :exec
 INSERT IGNORE INTO ResourceBatch (ResourceID, BatchID)

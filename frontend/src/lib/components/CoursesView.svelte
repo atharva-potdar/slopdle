@@ -5,6 +5,7 @@
   import { backdrop } from '../dialog';
   import { toast, undoableDelete } from '../toast';
   import { downloadCSV } from '../csv';
+  import { shortUrl } from '../format';
   import {
     api, nullStr, type Course, type ResourceCategory,
     type Resource
@@ -124,13 +125,59 @@
     if (!newTitle || !newFileUrl) return;
     try {
       await api.createResource(newCatId, newTitle, newFileUrl, newResBatchIds);
-      newTitle = '';
-      newFileUrl = '';
-      newResBatchIds = [];
-      showUploadModal = false;
+      resetResourceForm();
       resources = await api.getResources(selectedCourseId);
     } catch (err: any) {
       alert(err.message);
+    }
+  }
+
+  // File-backed resources: same upload machinery as submissions.
+  let resUploadMode: 'file' | 'link' = 'file';
+  let resUploadFile: File | null = null;
+  let resUploadPct = 0;
+  let resUploading = false;
+  let resUploadError = '';
+
+  function resetResourceForm() {
+    newTitle = '';
+    newFileUrl = '';
+    newResBatchIds = [];
+    resUploadFile = null;
+    resUploadPct = 0;
+    resUploadError = '';
+    showUploadModal = false;
+  }
+
+  async function handleUploadResource() {
+    resUploadError = '';
+    if (!newTitle.trim()) {
+      resUploadError = 'Give the resource a title first.';
+      return;
+    }
+    if (!resUploadFile) {
+      resUploadError = 'Choose a PDF or ZIP file first.';
+      return;
+    }
+    const ext = resUploadFile.name.toLowerCase().split('.').pop();
+    if (ext !== 'pdf' && ext !== 'zip') {
+      resUploadError = 'Only PDF and ZIP files are accepted.';
+      return;
+    }
+    if (resUploadFile.size > 25 * 1024 * 1024) {
+      resUploadError = 'File exceeds the 25 MB limit.';
+      return;
+    }
+    resUploading = true;
+    resUploadPct = 0;
+    try {
+      await api.uploadResource(newCatId, newTitle.trim(), resUploadFile, newResBatchIds, (p) => (resUploadPct = p));
+      resetResourceForm();
+      resources = await api.getResources(selectedCourseId);
+      toast('Resource uploaded');
+    } catch (err: any) {
+      resUploadError = err.message;
+      resUploading = false;
     }
   }
 
@@ -445,7 +492,7 @@
                   </span>
                   <span class="text-xs font-medium text-zinc-100">{res.title}</span>
                 </div>
-                <p class="text-[11px] text-zinc-500 font-mono mt-0.5 truncate max-w-md">{res.fileurl}</p>
+                <p class="text-[11px] text-zinc-500 font-mono mt-0.5 truncate max-w-md" title={res.fileurl}>{shortUrl(res.fileurl)}</p>
                 {#if nullStr(res.batchnames)}
                   <p class="text-[11px] text-zinc-400 mt-0.5">Batches: {nullStr(res.batchnames)}</p>
                 {:else}
@@ -766,6 +813,23 @@
     <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" use:backdrop={closeModals}>
       <div class="bg-zinc-950 border border-zinc-800 rounded-lg max-w-sm w-full p-5 space-y-4 shadow-xl">
         <h3 class="text-sm font-semibold text-zinc-100">Upload Learning Resource</h3>
+
+        <div class="inline-flex h-8 items-center rounded-lg bg-zinc-900/60 p-1 text-zinc-400 border border-zinc-800 text-xs" role="tablist" aria-label="Resource source">
+          <button
+            role="tab" aria-selected={resUploadMode === 'file'}
+            on:click={() => (resUploadMode = 'file')}
+            class="rounded-md px-3 py-1 font-medium transition-colors {resUploadMode === 'file' ? 'bg-zinc-800 text-zinc-100' : 'hover:text-zinc-200'}"
+          >
+            File
+          </button>
+          <button
+            role="tab" aria-selected={resUploadMode === 'link'}
+            on:click={() => (resUploadMode = 'link')}
+            class="rounded-md px-3 py-1 font-medium transition-colors {resUploadMode === 'link' ? 'bg-zinc-800 text-zinc-100' : 'hover:text-zinc-200'}"
+          >
+            Link
+          </button>
+        </div>
         
         <div>
           <label for="upload-category" class="block text-xs font-medium text-zinc-400 mb-1">Category</label>
@@ -790,15 +854,38 @@
           />
         </div>
 
-        <div>
-          <label for="upload-url" class="block text-xs font-medium text-zinc-400 mb-1">File URL</label>
-          <input 
-            id="upload-url"
-            bind:value={newFileUrl} 
-            placeholder="https://..." 
-            class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono placeholder:text-zinc-500 " 
-          />
-        </div>
+        {#if resUploadMode === 'file'}
+          <div>
+            <label for="upload-file" class="block text-xs font-medium text-zinc-400 mb-1">File (PDF or ZIP, max 25 MB)</label>
+            <input
+              id="upload-file"
+              type="file"
+              accept=".pdf,.zip"
+              disabled={resUploading}
+              on:change={(e) => {
+                resUploadFile = (e.target as HTMLInputElement).files?.[0] || null;
+                resUploadError = '';
+              }}
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 file:mr-2 file:rounded file:border-0 file:bg-zinc-100 file:px-2 file:py-1 file:text-[11px] file:font-medium file:text-zinc-950"
+            />
+            {#if resUploading}
+              <div class="mt-2 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                <div class="h-full bg-zinc-100 rounded-full transition-all" style="width: {resUploadPct}%"></div>
+              </div>
+              <p class="font-mono text-[11px] text-zinc-400 mt-1">{resUploadPct}%</p>
+            {/if}
+          </div>
+        {:else}
+          <div>
+            <label for="upload-url" class="block text-xs font-medium text-zinc-400 mb-1">File URL</label>
+            <input
+              id="upload-url"
+              bind:value={newFileUrl}
+              placeholder="https://..."
+              class="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 font-mono placeholder:text-zinc-500 "
+            />
+          </div>
+        {/if}
 
         <div>
           <span class="block text-xs font-medium text-zinc-400 mb-1">Target Batches</span>
@@ -813,9 +900,21 @@
           <p class="text-[11px] text-zinc-500 mt-1">Leave all unchecked to make it course-wide.</p>
         </div>
 
+        {#if resUploadError}
+          <div class="p-2.5 rounded-md border border-red-900/60 bg-red-950/30 text-red-300 text-xs">
+            {resUploadError}
+          </div>
+        {/if}
+
         <div class="flex justify-end space-x-2 pt-2 border-t border-zinc-800">
-          <button on:click={() => showUploadModal = false} class="px-3 py-1.5 text-xs rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100">Cancel</button>
-          <button on:click={handleAddResource} class="px-3 py-1.5 text-xs rounded-md bg-zinc-100 text-zinc-950 font-medium hover:bg-zinc-200">Upload</button>
+          <button on:click={resetResourceForm} class="px-3 py-1.5 text-xs rounded-md border border-zinc-800 text-zinc-400 hover:text-zinc-100">Cancel</button>
+          {#if resUploadMode === 'file'}
+            <button on:click={handleUploadResource} disabled={resUploading || !resUploadFile || !newTitle.trim()} class="px-3 py-1.5 text-xs rounded-md bg-zinc-100 text-zinc-950 font-medium hover:bg-zinc-200 disabled:opacity-50">
+              {resUploading ? `Uploading ${resUploadPct}%` : 'Upload'}
+            </button>
+          {:else}
+            <button on:click={handleAddResource} class="px-3 py-1.5 text-xs rounded-md bg-zinc-100 text-zinc-950 font-medium hover:bg-zinc-200">Save link</button>
+          {/if}
         </div>
       </div>
     </div>

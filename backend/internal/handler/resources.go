@@ -2,8 +2,14 @@ package handler
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 
 	"moodleplusplus/internal/db"
 )
@@ -218,11 +224,174 @@ func (h *AppHandler) DeleteResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	stored := ""
+	if resource.Filename.Valid && resource.Filename.String != "" {
+		stored = resource.Filename.String
+	}
+
 	err = h.q.DeleteResource(r.Context(), id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	// Best-effort disk sweep for file rows (link rows have no file).
+	if stored != "" {
+		if err := removeStoredFile(stored); err != nil {
+			fmt.Printf("sweep: cannot remove resource file %s: %v\n", stored, err)
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]string{"message": "resource deleted"})
+}
+
+// UploadResource stores one PDF/ZIP file as a course resource (staff only).
+// One resource = one document. Link-based resources still use CreateResource.
+func (h *AppHandler) UploadResource(w http.ResponseWriter, r *http.Request) {
+	categoryID, err := parseID(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid category id")
+		return
+	}
+
+	category, err := h.q.GetCategoryByID(r.Context(), categoryID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "category not found")
+		return
+	}
+	if !h.requireCourseStaff(w, r, category.Courseid) {
+		return
+	}
+
+	title := strings.TrimSpace(r.FormValue("title"))
+	if title == "" {
+		writeError(w, http.StatusBadRequest, "title is required")
+		return
+	}
+
+	const resMaxMB = 25
+	capBytes := int64(resMaxMB)<<20 + 1<<20
+	r.Body = http.MaxBytesReader(w, r.Body, capBytes)
+	if err := r.ParseMultipartForm(capBytes); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid upload (too large or malformed)")
+		return
+	}
+	files := r.MultipartForm.File["files"]
+	if len(files) == 0 {
+		files = r.MultipartForm.File["file"]
+	}
+	if len(files) != 1 {
+		writeError(w, http.StatusBadRequest, "attach exactly one PDF or ZIP file")
+		return
+	}
+	fh := files[0]
+
+	if err := os.MkdirAll(uploadDir(), 0750); err != nil {
+		writeError(w, http.StatusInternalServerError, "upload storage unavailable")
+		return
+	}
+	stored, _, err := saveUploadedFile(fh, resMaxMB)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	res, err := h.q.CreateResource(r.Context(), db.CreateResourceParams{
+		Title:      title,
+		Fileurl:    "pending",
+		Categoryid: categoryID,
+	})
+	if err != nil {
+		os.Remove(filepath.Join(uploadDir(), stored))
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	newID, _ := res.LastInsertId()
+	servePath := fmt.Sprintf("/api/resources/%d/file", newID)
+	if err := h.q.UpdateResourceFileURL(r.Context(), db.UpdateResourceFileURLParams{
+		Fileurl:    servePath,
+		Filename:   sql.NullString{String: stored, Valid: true},
+		Resourceid: int32(newID),
+	}); err != nil {
+		os.Remove(filepath.Join(uploadDir(), stored))
+		h.q.DeleteResource(r.Context(), int32(newID))
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Optional batch scope: repeated "batchIds" fields or comma-separated.
+	var batchIDs []int32
+	seen := map[string]bool{}
+	for _, raw := range r.MultipartForm.Value["batchIds"] {
+		for _, part := range strings.Split(raw, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" || seen[part] {
+				continue
+			}
+			seen[part] = true
+			if n, err := strconv.ParseInt(part, 10, 32); err == nil {
+				batchIDs = append(batchIDs, int32(n))
+			}
+		}
+	}
+	if err := h.setResourceBatches(r.Context(), int32(newID), batchIDs); err != nil {
+		os.Remove(filepath.Join(uploadDir(), stored))
+		h.q.DeleteResource(r.Context(), int32(newID))
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"message":    "resource uploaded",
+		"resourceId": newID,
+	})
+}
+
+// ResourceFile serves a file-backed resource to enrolled course members.
+// Link rows (FileURL not served by us) 404 here; their URLs open directly.
+func (h *AppHandler) ResourceFile(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid resource id")
+		return
+	}
+
+	resource, err := h.q.GetResourceByID(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "resource not found")
+		return
+	}
+	if !h.requireCourseMember(w, r, resource.Courseid) {
+		return
+	}
+	if !resource.Filename.Valid || resource.Filename.String == "" {
+		writeError(w, http.StatusNotFound, "this resource is a link, not a file")
+		return
+	}
+	name := filepath.Base(resource.Filename.String)
+	if name != resource.Filename.String || strings.Contains(name, "..") {
+		writeError(w, http.StatusNotFound, "resource file not found")
+		return
+	}
+
+	f, err := os.Open(filepath.Join(uploadDir(), name))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "resource file not found")
+		return
+	}
+	defer f.Close()
+	stat, err := f.Stat()
+	if err != nil {
+		writeError(w, http.StatusNotFound, "resource file not found")
+		return
+	}
+
+	ext := strings.ToLower(filepath.Ext(name))
+	mime := "application/octet-stream"
+	if m, ok := uploadExtMIME[ext]; ok {
+		mime = m
+	}
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", resource.Title+ext))
+	http.ServeContent(w, r, name, stat.ModTime(), f)
 }

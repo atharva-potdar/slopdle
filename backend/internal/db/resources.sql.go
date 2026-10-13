@@ -86,19 +86,20 @@ func (q *Queries) GetCategoryByID(ctx context.Context, categoryid int32) (Resour
 }
 
 const getResourceByID = `-- name: GetResourceByID :one
-SELECT r.ResourceID, r.Title, r.FileURL, r.UploadedAt, r.CategoryID, c.CourseID
+SELECT r.ResourceID, r.Title, r.FileURL, r.UploadedAt, r.CategoryID, r.FileName, c.CourseID
 FROM Resource r
 JOIN ResourceCategory c ON r.CategoryID = c.CategoryID
 WHERE r.ResourceID = ? LIMIT 1
 `
 
 type GetResourceByIDRow struct {
-	Resourceid int32        `json:"resourceid"`
-	Title      string       `json:"title"`
-	Fileurl    string       `json:"fileurl"`
-	Uploadedat sql.NullTime `json:"uploadedat"`
-	Categoryid int32        `json:"categoryid"`
-	Courseid   int32        `json:"courseid"`
+	Resourceid int32          `json:"resourceid"`
+	Title      string         `json:"title"`
+	Fileurl    string         `json:"fileurl"`
+	Uploadedat sql.NullTime   `json:"uploadedat"`
+	Categoryid int32          `json:"categoryid"`
+	Filename   sql.NullString `json:"filename"`
+	Courseid   int32          `json:"courseid"`
 }
 
 func (q *Queries) GetResourceByID(ctx context.Context, resourceid int32) (GetResourceByIDRow, error) {
@@ -110,6 +111,7 @@ func (q *Queries) GetResourceByID(ctx context.Context, resourceid int32) (GetRes
 		&i.Fileurl,
 		&i.Uploadedat,
 		&i.Categoryid,
+		&i.Filename,
 		&i.Courseid,
 	)
 	return i, err
@@ -426,4 +428,19 @@ func (q *Queries) ListResourcesByCourseForStudent(ctx context.Context, arg ListR
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateResourceFileURL = `-- name: UpdateResourceFileURL :exec
+UPDATE Resource SET FileURL = ?, FileName = ? WHERE ResourceID = ?
+`
+
+type UpdateResourceFileURLParams struct {
+	Fileurl    string         `json:"fileurl"`
+	Filename   sql.NullString `json:"filename"`
+	Resourceid int32          `json:"resourceid"`
+}
+
+func (q *Queries) UpdateResourceFileURL(ctx context.Context, arg UpdateResourceFileURLParams) error {
+	_, err := q.db.ExecContext(ctx, updateResourceFileURL, arg.Fileurl, arg.Filename, arg.Resourceid)
+	return err
 }

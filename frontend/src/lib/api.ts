@@ -366,12 +366,12 @@ export const api = {
       body: JSON.stringify({ contentData }),
     }),
   // File upload needs multipart + progress: XHR, not fetch.
-  uploadSubmission: (assignmentId: number, file: File, onProgress?: (pct: number) => void) =>
-    new Promise<{ message: string; submissionIds: number[] }>((resolve, reject) => {
+  uploadFile: (url: string, file: File, extra: Record<string, string> = {}, onProgress?: (pct: number) => void) =>
+    new Promise<any>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${BASE_URL}/assignments/${assignmentId}/upload`);
+      xhr.open('POST', url);
       xhr.withCredentials = true;
-      // Same ngrok free-tier bypass as request() above (dev tunnels only).
+      // ngrok free-tier bypass (dev tunnels only).
       if (import.meta.env.DEV) {
         xhr.setRequestHeader('ngrok-skip-browser-warning', 'true');
       }
@@ -389,10 +389,16 @@ export const api = {
       };
       xhr.onerror = () => reject(new Error('Upload failed (network)'));
       const fd = new FormData();
+      Object.entries(extra).forEach(([k, v]) => fd.append(k, v));
       fd.append('files', file, file.name);
       xhr.send(fd);
     }),
+  uploadSubmission: (assignmentId: number, file: File, onProgress?: (pct: number) => void) =>
+    api.uploadFile(`${BASE_URL}/assignments/${assignmentId}/upload`, file, {}, onProgress) as Promise<{ message: string; submissionIds: number[] }>,
   submissionFileUrl: (submissionId: number) => `${BASE_URL}/submissions/${submissionId}/file`,
+  uploadResource: (categoryId: number, title: string, file: File, batchIds: number[] = [], onProgress?: (pct: number) => void) =>
+    api.uploadFile(`${BASE_URL}/categories/${categoryId}/resources/upload`, file, { title, batchIds: batchIds.join(',') }, onProgress) as Promise<{ message: string; resourceId: number }>,
+  resourceFileUrl: (resourceId: number) => `${BASE_URL}/resources/${resourceId}/file`,
   getSubmissions: (assignmentId: number) => request<any[]>(`/assignments/${assignmentId}/submissions`),
   getSubmission: (id: number) => request<any>(`/submissions/${id}`),
   evaluateSubmission: (submissionId: number, score: number, feedback: string, graderId?: number, criteria?: CriterionGradeInput[]) =>

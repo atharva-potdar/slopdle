@@ -9,6 +9,7 @@
   import { toast, undoableDelete } from '../toast';
   import { downloadCSV } from '../csv';
   import { fmtDate, fmtWhen, fmtInput } from '../time';
+  import { shortUrl } from '../format';
 
   export let currentUser: User;
   export let selectedCourseId: number;
@@ -935,10 +936,11 @@
                       href={api.submissionFileUrl(rep.submissionId)}
                       target="_blank"
                       rel="noreferrer"
+                      title={rep.content || rep.fileName}
                       class="inline-flex items-center gap-1 font-mono text-[11px] text-zinc-300 hover:text-white underline underline-offset-2 truncate"
                     >
                       <ExternalLink class="w-3 h-3 shrink-0" />
-                      <span class="truncate">{rep.content || rep.fileName}</span>
+                      <span class="truncate">{shortUrl(rep.content || rep.fileName, 24)}</span>
                     </a>
                   {:else if isUrl(rep.content)}
                     <span class="font-mono text-[11px] uppercase px-1 py-0.5 rounded border border-zinc-800 bg-zinc-950 text-zinc-500 mr-1.5">
@@ -951,7 +953,7 @@
                       class="inline-flex items-center gap-1 font-mono text-[11px] text-zinc-300 hover:text-white underline underline-offset-2 truncate"
                     >
                       <ExternalLink class="w-3 h-3 shrink-0" />
-                      <span class="truncate">{rep.content}</span>
+                      <span class="truncate" title={rep.content}>{shortUrl(rep.content, 24)}</span>
                     </a>
                   {:else}
                     <span class="font-mono text-[11px] text-zinc-400 truncate block" title={rep.content}>{rep.content || '—'}</span>
@@ -1364,7 +1366,7 @@
                 class="mt-2 inline-flex items-center gap-1.5 text-xs text-zinc-100 hover:text-white underline underline-offset-2 break-all"
               >
                 <ExternalLink class="w-3.5 h-3.5 shrink-0" />
-                <span class="break-all">Download {gradingFileName}</span>
+                <span class="break-all">Download {shortUrl(gradingFileName, 40)}</span>
               </a>
             {:else if gradingFileName}
               <a
@@ -1373,7 +1375,7 @@
                 class="inline-flex items-center gap-1.5 text-xs text-zinc-100 hover:text-white underline underline-offset-2 break-all"
               >
                 <ExternalLink class="w-3.5 h-3.5 shrink-0" />
-                <span class="break-all">Download {gradingFileName}</span>
+                <span class="break-all">Download {shortUrl(gradingFileName, 40)}</span>
               </a>
             {:else if isPdf(gradingContent) && isUrl(gradingContent)}
               <iframe

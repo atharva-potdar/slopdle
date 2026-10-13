@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -37,6 +38,49 @@ func randHex(n int) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+// saveUploadedFile validates (ext whitelist + mime sniff + size) and stores
+// one multipart file, returning its stored name and detected MIME. Shared by
+// submission and resource uploads.
+func saveUploadedFile(fh *multipart.FileHeader, maxMB int32) (stored, mime string, err error) {
+	if fh.Size > int64(maxMB)<<20 {
+		return "", "", fmt.Errorf("%s exceeds the %d MB limit", fh.Filename, maxMB)
+	}
+	ext := strings.ToLower(filepath.Ext(fh.Filename))
+	wantMIME, ok := uploadExtMIME[ext]
+	if !ok {
+		return "", "", fmt.Errorf("%s: only PDF and ZIP files are accepted", fh.Filename)
+	}
+	src, err := fh.Open()
+	if err != nil {
+		return "", "", fmt.Errorf("cannot read uploaded file")
+	}
+	defer src.Close()
+	head := make([]byte, 512)
+	n, _ := io.ReadFull(src, head)
+	if http.DetectContentType(head[:n]) != wantMIME {
+		return "", "", fmt.Errorf("%s: content does not match its %s extension", fh.Filename, ext)
+	}
+	if _, err := src.Seek(0, io.SeekStart); err != nil {
+		return "", "", fmt.Errorf("cannot read uploaded file")
+	}
+	tag, err := randHex(8)
+	if err != nil {
+		return "", "", fmt.Errorf("cannot store uploaded file")
+	}
+	stored = tag + ext
+	dst, err := os.OpenFile(filepath.Join(uploadDir(), stored), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0640)
+	if err != nil {
+		return "", "", fmt.Errorf("cannot store uploaded file")
+	}
+	_, copyErr := io.Copy(dst, src)
+	dst.Close()
+	if copyErr != nil {
+		os.Remove(filepath.Join(uploadDir(), stored))
+		return "", "", fmt.Errorf("cannot store uploaded file")
+	}
+	return stored, wantMIME, nil
 }
 
 // UploadSubmission accepts 1..MaxUploadFiles files (field "files" or "file").
@@ -116,41 +160,11 @@ func (h *AppHandler) UploadSubmission(w http.ResponseWriter, r *http.Request) {
 	userID := h.callerID(r)
 	submitted := make([]int32, 0, len(files))
 	for _, fh := range files {
-		if fh.Size > int64(maxMB)<<20 {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("%s exceeds the %d MB limit", fh.Filename, maxMB))
-			return
-		}
-		ext := strings.ToLower(filepath.Ext(fh.Filename))
-		wantMIME, ok := uploadExtMIME[ext]
-		if !ok {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("%s: only PDF and ZIP files are accepted", fh.Filename))
-			return
-		}
-		src, err := fh.Open()
+		stored, wantMIME, err := saveUploadedFile(fh, maxMB)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "cannot read uploaded file")
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		head := make([]byte, 512)
-		n, _ := io.ReadFull(src, head)
-		if http.DetectContentType(head[:n]) != wantMIME {
-			src.Close()
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("%s: content does not match its %s extension", fh.Filename, ext))
-			return
-		}
-		if _, err := src.Seek(0, io.SeekStart); err != nil {
-			src.Close()
-			writeError(w, http.StatusInternalServerError, "cannot read uploaded file")
-			return
-		}
-
-		tag, err := randHex(8)
-		if err != nil {
-			src.Close()
-			writeError(w, http.StatusInternalServerError, "cannot store uploaded file")
-			return
-		}
-		stored := tag + ext
 
 		res, err := h.q.CreateSubmission(r.Context(), db.CreateSubmissionParams{
 			Contentdata:  fh.Filename,
@@ -160,28 +174,11 @@ func (h *AppHandler) UploadSubmission(w http.ResponseWriter, r *http.Request) {
 			Mimetype:     sql.NullString{String: wantMIME, Valid: true},
 		})
 		if err != nil {
-			src.Close()
+			os.Remove(filepath.Join(uploadDir(), stored))
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		subID, _ := res.LastInsertId()
-
-		dst, err := os.OpenFile(filepath.Join(uploadDir(), stored), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0640)
-		if err != nil {
-			src.Close()
-			h.q.DeleteSubmissionByID(r.Context(), int32(subID))
-			writeError(w, http.StatusInternalServerError, "cannot store uploaded file")
-			return
-		}
-		_, copyErr := io.Copy(dst, src)
-		dst.Close()
-		src.Close()
-		if copyErr != nil {
-			os.Remove(filepath.Join(uploadDir(), stored))
-			h.q.DeleteSubmissionByID(r.Context(), int32(subID))
-			writeError(w, http.StatusInternalServerError, "cannot store uploaded file")
-			return
-		}
 		submitted = append(submitted, int32(subID))
 	}
 
